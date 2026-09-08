@@ -1,7 +1,8 @@
-export const W = 960;
-export const H = 600;
+window.Pristav = (function () {
+const W = 960;
+const H = 600;
 
-export const TYPES = {
+const TYPES = {
   cannon: {
     name: 'Kanón',
     tag: 'Spolehlivá palba',
@@ -44,7 +45,7 @@ export const TYPES = {
   },
 };
 
-export const ENEMIES = {
+const ENEMIES = {
   clun: { name: 'Člun', hp: 48, speed: 58, size: 14, color: '#8fb9a8', bounty: 12, harm: 1, armor: 0 },
   skuter: { name: 'Skútr', hp: 36, speed: 92, size: 12, color: '#c5e0a8', bounty: 14, harm: 1, armor: 0 },
   obrnenec: { name: 'Obrněnec', hp: 150, speed: 40, size: 18, color: '#8a97a6', bounty: 24, harm: 2, armor: 1 },
@@ -53,7 +54,7 @@ export const ENEMIES = {
 
 const repeat = (type, n) => Array(n).fill(type);
 
-export function wavePlan(index, wave) {
+function wavePlan(index, wave) {
   const plans = [
     [
       repeat('clun', 9),
@@ -112,7 +113,7 @@ export function wavePlan(index, wave) {
   return plans[index]?.[wave - 1] || [];
 }
 
-export const LEVELS = [
+const LEVELS = [
   {
     name: 'První světla',
     area: 'VNITŘNÍ ZÁLIV',
@@ -175,7 +176,7 @@ export const LEVELS = [
   },
 ];
 
-export function distance(a, b) {
+function distance(a, b) {
   const ax = Array.isArray(a) ? a[0] : a.x;
   const ay = Array.isArray(a) ? a[1] : a.y;
   const bx = Array.isArray(b) ? b[0] : b.x;
@@ -183,7 +184,7 @@ export function distance(a, b) {
   return Math.hypot(bx - ax, by - ay);
 }
 
-export function pathData(points) {
+function pathData(points) {
   const lengths = [0];
   let length = 0;
   for (let i = 1; i < points.length; i++) {
@@ -193,7 +194,7 @@ export function pathData(points) {
   return { points, lengths, length };
 }
 
-export function onPath(path, dist) {
+function onPath(path, dist) {
   const d = Math.max(0, Math.min(path.length, dist));
   const pts = path.points;
   const lengths = path.lengths;
@@ -208,7 +209,7 @@ export function onPath(path, dist) {
   return { x, y, angle: Math.atan2(b[1] - a[1], b[0] - a[0]) };
 }
 
-export function stats(tower) {
+function stats(tower) {
   const base = TYPES[tower.type];
   const level = tower.level || 1;
   return {
@@ -221,7 +222,7 @@ export function stats(tower) {
   };
 }
 
-export function upgradeCost(tower) {
+function upgradeCost(tower) {
   return Math.round(TYPES[tower.type].cost * (0.65 + tower.level * 0.5));
 }
 
@@ -231,7 +232,7 @@ function starsFromLives(lives) {
   return 1;
 }
 
-export class Defense {
+class Defense {
   constructor(index = 0) {
     this.index = index;
     this.level = LEVELS[index];
@@ -474,3 +475,7 @@ export class Defense {
     }
   }
 }
+
+window.Pristav = { Defense, LEVELS, TYPES, ENEMIES, W, H, stats, upgradeCost, wavePlan, onPath, pathData, distance };
+return window.Pristav;
+})();

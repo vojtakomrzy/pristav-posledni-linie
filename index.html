@@ -108,6 +108,17 @@
     </div>
   </dialog>
   <noscript><div class="no-script">Hra potřebuje zapnutý JavaScript.</div></noscript>
-  <script type="module" src="./game.js"></script>
+  <script>
+    window.addEventListener('error', function (e) {
+      if (document.querySelector('.level-card') || document.getElementById('boot-error')) return;
+      var p = document.createElement('p');
+      p.id = 'boot-error';
+      p.className = 'no-script';
+      p.textContent = 'Hru se nepodařilo spustit: ' + (e.message || 'neznámá chyba');
+      document.body.appendChild(p);
+    });
+  </script>
+  <script src="./engine.js"></script>
+  <script src="./game.js"></script>
 </body>
 </html>

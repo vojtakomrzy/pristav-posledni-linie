@@ -1,4 +1,5 @@
-import {Defense,LEVELS,TYPES,ENEMIES,W,H,stats,upgradeCost,wavePlan,onPath,pathData,distance} from './engine.mjs';
+if(!window.Pristav)throw new Error('engine missing');
+const {Defense,LEVELS,TYPES,ENEMIES,W,H,stats,upgradeCost,wavePlan,onPath,pathData,distance}=window.Pristav;
 const $=id=>document.getElementById(id),canvas=$('board'),ctx=canvas.getContext('2d'),typeKeys=Object.keys(TYPES);
 const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
 let game=new Defense(),screen='campaign',selected=-1,blueprint=null,paused=false,speed=1,clock=0,last=0,uiClock=0,noticeTime=0,effects=[],hover=-1,mapScale=1,mapX=0,mapY=0,viewW=960,viewH=600;
