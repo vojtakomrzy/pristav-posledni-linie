@@ -1,0 +1,8 @@
+node_modules/
+dist/
+dist-runtime/
+electron-runtime.zip
+*.log
+*.exe
+.cursor/
+

@@ -1,0 +1,44 @@
+{
+  "name": "pristav-posledni-linie",
+  "version": "1.0.0",
+  "description": "Přístav — Poslední linie",
+  "main": "electron/main.js",
+  "author": "Přístav",
+  "license": "UNLICENSED",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win portable"
+  },
+  "build": {
+    "appId": "cz.pristav.posledni-linie",
+    "productName": "Přístav — Poslední linie",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "index.html",
+      "style.css",
+      "fonts.css",
+      "game.js",
+      "engine.mjs",
+      "harbor.png",
+      "favicon.svg",
+      "icon.png",
+      "fonts/**/*",
+      "electron/main.js"
+    ],
+    "win": {
+      "icon": "icon.png",
+      "target": [
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ]
+    }
+  },
+  "devDependencies": {
+    "electron": "^37.2.4",
+    "electron-builder": "^26.0.12"
+  }
+}

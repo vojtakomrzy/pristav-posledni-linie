@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#071e27">
+  <meta name="description" content="Udrž přístav. Atmosférická tower defense se šesti mapami, čtyřmi typy věží, vylepšováním a bossy.">
+  <title>Přístav — Poslední linie</title>
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./fonts.css">
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <div class="backdrop"></div>
+  <div class="app">
+    <header class="topbar">
+      <button class="brand" id="home" aria-label="Mapa sektorů">
+        <span class="brand-mark">Ⅱ</span>
+        <span>PŘÍSTAV<small>POSLEDNÍ LINIE</small></span>
+      </button>
+      <div class="top-right">
+        <span class="edition">TOWER DEFENSE / NOČNÍ SMĚNA</span>
+        <button id="sound" class="icon-btn" aria-label="Zapnout zvuk" aria-pressed="false">♪</button>
+        <button id="help" class="icon-btn" aria-label="Jak hrát">?</button>
+      </div>
+    </header>
+    <section id="campaign" class="campaign">
+      <div class="campaign-heading">
+        <div>
+          <div class="eyebrow"><span></span> OBRANA PŘÍSTAVU</div>
+          <h1>POSLEDNÍ <em>LINIE.</em></h1>
+          <p>Rozmísti věže. Zastav flotilu. Udrž maják.</p>
+        </div>
+        <div class="campaign-progress">
+          <b id="total-stars">0 <span>/ 18</span></b>
+          <span>HVĚZDY KAMPANĚ</span>
+        </div>
+      </div>
+      <div id="levels" class="level-grid"></div>
+      <footer class="campaign-footer">
+        <span><i></i> Postup se ukládá na tomto zařízení.</span>
+        <span>MYŠ / DOTYK / KLÁVESNICE</span>
+      </footer>
+    </section>
+    <section id="battle" class="battle hidden" aria-label="Obrana sektoru">
+      <div class="battle-main">
+        <div class="mission-bar">
+          <div class="mission-title">
+            <span id="sector-label" class="eyebrow">SEKTOR 01</span>
+            <h2 id="mission-name">První světla</h2>
+          </div>
+          <div class="resources">
+            <div><span>KREDITY</span><b class="mint" id="money">340</b></div>
+            <div><span>MAJÁK</span><b id="lives">20 <small>/ 20</small></b></div>
+            <div><span>VLNA</span><b id="wave">0 <small>/ 5</small></b></div>
+          </div>
+        </div>
+        <div class="board-wrap">
+          <canvas id="board" tabindex="0" aria-label="Herní mapa. Vyber věž tlačítkem a klikni na stavební místo. Šipky vybírají místa, Enter potvrzuje, klávesy 1 až 4 vybírají věž."></canvas>
+          <div class="board-tag"><span class="live-dot"></span><span id="board-state">PŘÍPRAVA OBRANY</span></div>
+          <div id="notice" class="notice" role="status" aria-live="polite"></div>
+          <div class="board-legend"><span class="route-dot"></span> Trasa nepřátel <span class="pad-dot"></span> Stavební místo</div>
+        </div>
+        <div class="battle-toolbar">
+          <div class="wave-preview">
+            <span id="next-label">PŘÍŠTÍ VLNA</span>
+            <b id="next-enemies">9× člun</b>
+          </div>
+          <div class="battle-actions">
+            <button class="small-btn" id="speed" aria-label="Rychlost hry">1×</button>
+            <button class="small-btn" id="pause" aria-label="Pozastavit hru">Ⅱ</button>
+            <button class="primary" id="send-wave">Spustit vlnu <span>→</span></button>
+          </div>
+        </div>
+        <div class="keyboard-note">1–4 věž · ↑↓←→ místo · Enter stavět · U vylepšit · mezerník vlna · P pauza</div>
+      </div>
+      <aside class="armory">
+        <div class="armory-heading">
+          <span class="eyebrow">ARSENÁL</span>
+          <span>4 TYPY VĚŽÍ</span>
+        </div>
+        <h3>Postav svou obranu.</h3>
+        <p class="armory-tip" id="build-hint">Vyber věž a pak svítící místo na mapě.</p>
+        <div id="tower-options" class="tower-grid"></div>
+        <section class="inspector" id="inspector">
+          <div class="inspector-title">
+            <span id="selection-label">TAKTICKÁ RADA</span>
+            <button id="cancel-selection" class="text-btn hidden" aria-label="Zrušit výběr">✕</button>
+          </div>
+          <h4 id="selection-name">Využij zatáčky.</h4>
+          <p id="selection-desc">Věž u zatáčky drží nepřátele déle v dostřelu.</p>
+          <div id="tower-stats" class="tower-stats hidden"></div>
+          <div class="upgrade-actions hidden" id="upgrade-actions">
+            <button class="primary" id="upgrade">Vylepšit</button>
+            <button class="text-btn sell" id="sell">Prodat</button>
+          </div>
+        </section>
+        <div class="armory-footer"><span class="tiny-line"></span><p>Maják nesmí zhasnout.</p></div>
+      </aside>
+    </section>
+  </div>
+  <dialog id="modal">
+    <div class="modal-inner">
+      <span class="eyebrow" id="modal-kicker"></span>
+      <h2 id="modal-title"></h2>
+      <div id="modal-copy"></div>
+      <div id="modal-actions"></div>
+    </div>
+  </dialog>
+  <noscript><div class="no-script">Hra potřebuje zapnutý JavaScript.</div></noscript>
+  <script type="module" src="./game.js"></script>
+</body>
+</html>
