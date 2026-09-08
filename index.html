@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#071e27">
-  <meta name="description" content="Udrž přístav. Atmosférická tower defense se šesti mapami, čtyřmi typy věží, vylepšováním a bossy.">
+  <meta name="description" content="Udrž přístav. Roguelite tower defense: krátké hlídky, trvalá vylepšení a čtyři typy věží.">
   <title>Přístav — Poslední linie</title>
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./fonts.css">
@@ -14,7 +14,7 @@
   <div class="backdrop"></div>
   <div class="app">
     <header class="topbar">
-      <button class="brand" id="home" aria-label="Mapa sektorů">
+      <button class="brand" id="home" aria-label="Velitelství">
         <span class="brand-mark">Ⅱ</span>
         <span>PŘÍSTAV<small>POSLEDNÍ LINIE</small></span>
       </button>
@@ -24,12 +24,39 @@
         <button id="help" class="icon-btn" aria-label="Jak hrát">?</button>
       </div>
     </header>
-    <section id="campaign" class="campaign">
+    <section id="meta" class="campaign" aria-label="Velitelství">
       <div class="campaign-heading">
         <div>
-          <div class="eyebrow"><span></span> OBRANA PŘÍSTAVU</div>
+          <div class="eyebrow"><span></span> VELITELSTVÍ</div>
           <h1>POSLEDNÍ <em>LINIE.</em></h1>
-          <p>Rozmísti věže. Zastav flotilu. Udrž maják.</p>
+          <p>Krátká hlídka. Ze zbytků flotily posílíš další výpad.</p>
+        </div>
+        <div class="campaign-progress">
+          <b id="meta-currency">0</b>
+          <span>ZBYTKY</span>
+        </div>
+      </div>
+      <p id="last-run" class="meta-last hidden"></p>
+      <div id="upgrades" class="upgrade-grid"></div>
+      <div class="meta-cta">
+        <div>
+          <span class="eyebrow"><span></span> DALŠÍ BĚH</span>
+          <h3 class="meta-run-title">Hlídka ve vnitřním zálivu</h3>
+          <p class="meta-run-copy">Stejný boj jako dřív — Kanón, Tesla, Kryo, Minomet. Bonusy z velitelství platí od startu.</p>
+        </div>
+        <button class="primary" id="start-run">Vyrazit na hlídku <span>→</span></button>
+      </div>
+      <footer class="campaign-footer">
+        <span><i></i> Zbytky a vylepšení se ukládají na tomto zařízení.</span>
+        <button class="text-btn" id="show-campaign">Klasické sektory</button>
+      </footer>
+    </section>
+    <section id="campaign" class="campaign hidden" aria-label="Mapa sektorů">
+      <div class="campaign-heading">
+        <div>
+          <div class="eyebrow"><span></span> KLASICKÁ KAMPAŇ</div>
+          <h1>ŠEST <em>SEKTORŮ.</em></h1>
+          <p>Volitelná mapa. Hvězdy zůstanou, hlavní smyčka je teď na velitelství.</p>
         </div>
         <div class="campaign-progress">
           <b id="total-stars">0 <span>/ 18</span></b>
@@ -38,8 +65,8 @@
       </div>
       <div id="levels" class="level-grid"></div>
       <footer class="campaign-footer">
-        <span><i></i> Postup se ukládá na tomto zařízení.</span>
-        <span>MYŠ / DOTYK / KLÁVESNICE</span>
+        <span><i></i> Postup kampaně se pořád ukládá zvlášť.</span>
+        <button class="text-btn" id="back-to-meta">Zpět na velitelství</button>
       </footer>
     </section>
     <section id="battle" class="battle hidden" aria-label="Obrana sektoru">

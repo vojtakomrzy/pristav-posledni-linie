@@ -225,20 +225,30 @@ export function upgradeCost(tower) {
   return Math.round(TYPES[tower.type].cost * (0.65 + tower.level * 0.5));
 }
 
-function starsFromLives(lives) {
-  if (lives >= 20) return 3;
-  if (lives >= 12) return 2;
+function starsFromLives(lives, maxLives = 20) {
+  if (lives >= maxLives) return 3;
+  if (lives >= Math.ceil(maxLives * 0.6)) return 2;
   return 1;
 }
 
+export function normalizeMods(mods = {}) {
+  return {
+    money: Math.max(0, Math.round(Number(mods.money) || 0)),
+    lives: Math.max(0, Math.round(Number(mods.lives) || 0)),
+    discount: Math.min(0.4, Math.max(0, Number(mods.discount) || 0)),
+  };
+}
+
 export class Defense {
-  constructor(index = 0) {
+  constructor(index = 0, mods = {}) {
     this.index = index;
     this.level = LEVELS[index];
     this.paths = this.level.paths.map(pathData);
     this.state = 'build';
-    this.money = this.level.money;
-    this.lives = 20;
+    this.mods = normalizeMods(mods);
+    this.money = this.level.money + this.mods.money;
+    this.maxLives = 20 + this.mods.lives;
+    this.lives = this.maxLives;
     this.wave = 0;
     this.kills = 0;
     this.towers = [];
@@ -250,13 +260,25 @@ export class Defense {
     this.id = 1;
   }
 
+  price(base) {
+    return Math.round(base * (1 - this.mods.discount));
+  }
+
+  towerCost(type) {
+    return this.price(TYPES[type].cost);
+  }
+
+  upgradePrice(tower) {
+    return this.price(upgradeCost(tower));
+  }
+
   towerAt(pad) {
     return this.towers.find(t => t.pad === pad);
   }
 
   build(pad, type) {
     if (!['build', 'wave'].includes(this.state) || this.towerAt(pad) || !TYPES[type]) return false;
-    const cost = TYPES[type].cost;
+    const cost = this.towerCost(type);
     if (this.money < cost) return false;
     const [x, y] = this.level.pads[pad];
     this.money -= cost;
@@ -270,7 +292,7 @@ export class Defense {
   upgrade(pad) {
     const tower = this.towerAt(pad);
     if (!tower || tower.level >= 3) return false;
-    const cost = upgradeCost(tower);
+    const cost = this.upgradePrice(tower);
     if (this.money < cost) return false;
     this.money -= cost;
     tower.level += 1;
@@ -467,7 +489,7 @@ export class Defense {
       this.events.push({ type: 'clear', bonus });
       if (this.wave >= this.level.waves) {
         this.state = 'won';
-        this.events.push({ type: 'end', won: true, stars: starsFromLives(this.lives) });
+        this.events.push({ type: 'end', won: true, stars: starsFromLives(this.lives, this.maxLives) });
       } else {
         this.state = 'build';
       }
