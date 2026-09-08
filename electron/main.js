@@ -7,7 +7,7 @@ function createWindow() {
     height: 960,
     minWidth: 1100,
     minHeight: 720,
-    backgroundColor: '#071e27',
+    backgroundColor: '#2a0c14',
     title: 'Přístav — Poslední linie',
     icon: path.join(__dirname, '..', 'icon.png'),
     autoHideMenuBar: true,
