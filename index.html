@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#071e27">
   <meta name="description" content="Die, upgrade, hold the harbor one more run.">
-  <title>Přístav — Poslední linie</title>
+  <title>Přístav — Last Line</title>
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./fonts.css">
   <link rel="stylesheet" href="./style.css">
@@ -32,10 +32,10 @@
           <h1>HOLD THE <em>HARBOR.</em></h1>
           <p>Die, upgrade, hold one more run.</p>
         </div>
-        <div class="remnant-bank" aria-label="Remnants">
-          <svg class="remnant-mark" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.15 14.85 8 8 14.85 1.15 8Z" fill="#b8ffd9" stroke="#071e27" stroke-width="1.35" stroke-linejoin="round"/></svg>
-          <b id="hq-remnants">0</b>
-          <span>REMNANTS</span>
+        <div class="anchor-bank" aria-label="Anchors">
+          <img class="anchor-mark" src="./assets/anchors.svg" width="18" height="18" alt="">
+          <b id="hq-anchors">0</b>
+          <span>ANCHORS</span>
         </div>
       </div>
       <p id="last-run" class="last-run hidden"></p>
@@ -50,80 +50,56 @@
         <button class="primary" id="start-run">Deploy <span>→</span></button>
       </div>
       <footer class="hq-foot">
-        <span><i></i> Remnants save on this device.</span>
+        <span><i></i> Anchors save on this device.</span>
         <span>MOUSE / TOUCH / KEYS</span>
       </footer>
     </section>
 
     <section id="battle" class="battle hidden" aria-label="Harbor defense">
-      <div class="battle-main">
-        <div class="mission-bar">
-          <div class="mission-title">
-            <span id="sector-label" class="eyebrow">NIGHT PATROL</span>
-            <h2 id="mission-name">Inner Harbor</h2>
-          </div>
-          <div class="resources">
-            <div class="res gold" title="Credits">
-              <svg class="gold-mark" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.2" fill="#ffd192"/></svg>
-              <b id="money">360</b>
-            </div>
-            <div class="res lives" title="Lives" id="lives-wrap">
-              <svg class="life-mark" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.8 13.4 14.2H2.6Z" fill="#b8ffd9" stroke="#071e27" stroke-width="1.2" stroke-linejoin="round"/><circle cx="8" cy="6" r="1.55" fill="#ffd192"/></svg>
-              <b id="lives">18</b>
-            </div>
-            <div class="res wave" title="Wave">
-              <span class="wave-bar" aria-hidden="true"><i id="wave-fill"></i></span>
-              <b id="wave">0/8</b>
-            </div>
-          </div>
+      <div class="hud-top" aria-label="Battle resources">
+        <div class="res gold" title="Credits">
+          <img class="gold-mark" src="./assets/credits.svg" width="16" height="16" alt="">
+          <b id="money">360</b>
         </div>
-        <div class="board-wrap">
-          <canvas id="board" tabindex="0" aria-label="Harbor map. Pick a tower, then a pad."></canvas>
-          <div class="board-tag"><span class="live-dot"></span><span id="board-state">BUILD</span></div>
-          <div id="notice" class="notice" role="status" aria-live="polite"></div>
+        <div class="res lives" title="Lives" id="lives-wrap">
+          <img class="life-mark" src="./assets/lives.svg" width="20" height="20" alt="">
+          <b id="lives">18</b>
         </div>
-        <div class="battle-toolbar">
-          <div class="wave-preview">
-            <span id="next-label">NEXT WAVE</span>
-            <b id="next-enemies">10× Skiff</b>
-          </div>
-          <div class="battle-actions">
-            <button class="small-btn" id="speed" aria-label="Game speed">1×</button>
-            <button class="small-btn" id="pause" aria-label="Pause">Ⅱ</button>
-            <button class="primary" id="send-wave">Send wave <span>→</span></button>
-          </div>
+        <div class="res wave" title="Wave">
+          <span class="wave-bar" aria-hidden="true"><i id="wave-fill"></i></span>
+          <b id="wave">0/8</b>
         </div>
       </div>
-      <aside class="armory">
-        <div class="armory-heading">
-          <span class="eyebrow">ARMORY</span>
-          <span>4 ROLES</span>
+      <div class="board-wrap">
+        <canvas id="board" tabindex="0" aria-label="Harbor map. Pick a tower, then a pad."></canvas>
+        <div class="mode-chip" id="mode-chip">BUILDING</div>
+        <div id="notice" class="notice" role="status" aria-live="polite"></div>
+      </div>
+      <div class="dock">
+        <div class="dock-modes" role="tablist" aria-label="Dock mode">
+          <button class="dock-mode selected" id="mode-build" aria-pressed="true">BUILD</button>
+          <button class="dock-mode" id="mode-upgrade" aria-pressed="false">UPGRADE</button>
+          <button class="dock-mode" id="mode-sell" aria-pressed="false">SELL</button>
         </div>
-        <p class="armory-tip" id="build-hint">Pick a tower, then a pad.</p>
-        <div id="tower-options" class="tower-grid"></div>
-        <section class="inspector">
-          <div class="inspector-title">
-            <span id="selection-label">TIP</span>
-            <button id="cancel-selection" class="text-btn hidden" aria-label="Clear selection">✕</button>
-          </div>
-          <h4 id="selection-name">Hold the bend.</h4>
-          <p id="selection-desc">Towers on corners keep hulls in range longer.</p>
-          <div id="tower-stats" class="tower-stats hidden"></div>
-          <div class="upgrade-actions hidden" id="upgrade-actions">
-            <button class="primary" id="upgrade">Upgrade</button>
-            <button class="text-btn sell" id="sell">Sell</button>
-          </div>
-        </section>
-      </aside>
+        <div id="tower-options" class="dock-towers"></div>
+        <div class="dock-wave">
+          <span id="next-enemies" class="dock-next">10× Swarm</span>
+          <button class="start-wave" id="send-wave">START WAVE</button>
+        </div>
+        <div class="dock-tools">
+          <button class="small-btn" id="speed" aria-label="Game speed">1×</button>
+          <button class="small-btn" id="pause" aria-label="Pause">Ⅱ</button>
+        </div>
+      </div>
     </section>
 
     <section id="result" class="result hidden" aria-label="Run over">
       <span class="eyebrow" id="result-kicker">RUN OVER</span>
       <h1 id="result-title">The lantern held.</h1>
       <div class="result-gain">
-        <svg class="remnant-mark" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.15 14.85 8 8 14.85 1.15 8Z" fill="#b8ffd9" stroke="#071e27" stroke-width="1.35" stroke-linejoin="round"/></svg>
-        <b id="result-remnants">+0</b>
-        <span>REMNANTS</span>
+        <img class="anchor-mark" src="./assets/anchors.svg" width="20" height="20" alt="">
+        <b id="result-anchors">+0</b>
+        <span>ANCHORS</span>
       </div>
       <div class="result-stats">
         <div><b id="result-kills">0</b><span>SUNK</span></div>

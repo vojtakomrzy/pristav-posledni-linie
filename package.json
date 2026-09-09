@@ -27,6 +27,7 @@
       "favicon.svg",
       "icon.png",
       "fonts/**/*",
+      "assets/**/*",
       "electron/main.js"
     ],
     "win": {

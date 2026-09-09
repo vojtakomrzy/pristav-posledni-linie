@@ -1,8 +1,9 @@
 import {
-  Defense, TYPES, ENEMIES, LEVELS, remnantsFor, blankSave, parseSave,
-  persistSave, loadSave, buyMeta, applyRunPayout, modsFromSave, demoCta,
-  demoRankLocked, META_COST, DEMO, SAVE_KEY, META_UPGRADES,
+  Defense, TYPES, ENEMIES, LEVELS, anchorsFor, blankSave, parseSave,
+  persistSave, loadSave, buyMeta, buyMap, applyRunPayout, modsFromSave, demoCta,
+  demoRankLocked, DEMO, SAVE_KEY, META_UPGRADES, MAP_UNLOCK_COST, mapUnlocked, metaCost,
 } from '../engine.mjs';
+import { readFile } from 'node:fs/promises';
 
 const fails = [];
 function assert(cond, msg) {
@@ -34,54 +35,87 @@ assert(TYPES.cannon.color === '#ffd192', 'cannon accent');
 assert(TYPES.tesla.color === '#7fd4ff', 'tesla accent');
 assert(TYPES.frost.color === '#8ecbff', 'cryo accent');
 assert(TYPES.mortar.color === '#c4a574', 'mortar accent');
-assert(META_UPGRADES.map(u => u.icon).join() === 'coins,lighthouse,discount', 'grafik meta icons');
-assert(ENEMIES.swarm.role === 'Swarm' && ENEMIES.fast.role === 'Fast' && ENEMIES.tank.role === 'Tank', 'three threats');
-assert(LEVELS.length >= 1 && LEVELS.length <= 2, 'one or two harbor maps');
+assert(META_UPGRADES.map(u => u.id).join() === 'gold,wall,arsenal,interest,radar', 'designer shop ids');
+assert(metaCost('gold', 0) === 25 && metaCost('gold', 1) === 55 && metaCost('gold', 2) === 95, 'starting gold costs');
+assert(metaCost('wall', 0) === 40 && metaCost('wall', 1) === 100, 'dock wall costs');
+assert(metaCost('arsenal', 0) === 50, 'arsenal cost');
+assert(metaCost('interest', 0) === 35 && metaCost('interest', 1) === 80, 'interest costs');
+assert(metaCost('radar', 0) === 45, 'radar cost');
+assert(MAP_UNLOCK_COST === 60, 'map unlock 60 anchors');
+assert(ENEMIES.scout1.family === 'scout' && ENEMIES.swarm1.ring === '#b8ffd9', 'scout/swarm teal ring');
+assert(ENEMIES.ironclad1.ring === '#ffd192' && ENEMIES.ironclad3.tier === 3, 'ironclad amber L1-L3');
+assert(ENEMIES.juggernaut.ring === '#ff8094' && ENEMIES.juggernaut.role === 'Boss', 'juggernaut magenta boss');
+assert(LEVELS.length === 3, 'maps A/B/C');
+assert(LEVELS[0].id === 'a' && LEVELS[0].pads.length >= 6 && LEVELS[0].pads.length <= 9, 'map A S-lane pads');
+assert(LEVELS[1].id === 'b' && LEVELS[1].paths.length === 2, 'map B dual merge');
+assert(LEVELS[2].id === 'c' && LEVELS[2].pads.length >= 9 && LEVELS[2].pads.length <= 14, 'map C horseshoe pads');
+assert(LEVELS[0].lighthouse[0] > 800, 'map A lighthouse east');
 assert(!Object.values(TYPES).some(t => /kampaň|sektor/i.test(t.name)), 'no campaign tower names');
 
-const lossPay = remnantsFor({ won: false, wave: 1, kills: 0, lives: 0 });
-const winPay = remnantsFor({ won: true, wave: 8, kills: 80, lives: 16 });
-assert(lossPay >= 10, `loss pays remnants, got ${lossPay}`);
-assert(winPay > lossPay, `win pays more than loss (${winPay} vs ${lossPay})`);
-assert(lossPay >= META_COST[0], 'first death can buy a rank-1 upgrade');
+const lossPay = anchorsFor({ won: false, wave: 1, boss: false });
+const winPay = anchorsFor({ won: true, wave: 8, boss: true });
+const capped = anchorsFor({ won: true, wave: 80, boss: true });
+assert(lossPay === 2, `wave×2 on loss, got ${lossPay}`);
+assert(winPay === 8 * 2 + 15 + 10, `clear 15 + boss 10, got ${winPay}`);
+assert(capped === 100, `soft cap 100, got ${capped}`);
 
 let save = blankSave();
-const r1 = applyRunPayout(save, { won: false, wave: 3, kills: 12, lives: 0 });
-assert(save.runs === 1 && save.remnants === r1, 'run 1 remnants stored');
-assert(buyMeta(save, 'chest'), 'run 1 can buy war chest');
-assert(save.upgrades.chest === 1, 'chest rank 1');
-assert(!buyMeta(save, 'chest'), 'rank 2 blocked in demo');
-assert(demoRankLocked(save.upgrades.chest), 'demo rank cap');
+assert(save.anchors === 0 && save.unlockedMaps.includes('a'), 'map A free');
+assert(!mapUnlocked(save, 'b') && !mapUnlocked(save, 'c'), 'B/C locked');
+const r1 = applyRunPayout(save, { won: false, wave: 3, kills: 12, lives: 0, mapId: 'a' });
+assert(save.runs === 1 && save.anchors === r1 && r1 === 6, 'run 1 anchors stored');
+save.anchors += 25;
+assert(buyMeta(save, 'gold'), 'can buy starting gold rank 1');
+assert(save.upgrades.gold === 1, 'gold rank 1');
+assert(!buyMeta(save, 'gold'), 'rank 2 blocked in demo');
+assert(demoRankLocked(save.upgrades.gold), 'demo rank cap');
 
-const r2 = applyRunPayout(save, { won: true, wave: 8, kills: 90, lives: 14 });
+const r2 = applyRunPayout(save, { won: true, wave: 8, kills: 90, lives: 14, boss: true, mapId: 'a' });
 assert(save.runs === 2, 'two runs counted');
 assert(demoCta(save.runs), 'cta after 2 runs');
-assert(buyMeta(save, 'lights'), 'can still spend remnants on remaining rank-1');
-assert(buyMeta(save, 'yard') || save.remnants < META_COST[0], 'yard buy or leftover too small');
-assert(!buyMeta(save, 'lights'), 'no rank 2 after gate');
-applyRunPayout(save, { won: false, wave: 4, kills: 20, lives: 0 });
+assert(save.cleared.includes('a'), 'clear A recorded');
+assert(mapUnlocked(save, 'b'), 'clear A unlocks B');
+assert(buyMeta(save, 'radar'), 'can still spend anchors on remaining rank-1');
+assert(!buyMeta(save, 'radar'), 'radar max 1');
+applyRunPayout(save, { won: false, wave: 4, kills: 20, lives: 0, mapId: 'b' });
 assert(save.runs === 3, 'third run still allowed');
-assert(save.remnants >= 0, 'no negative remnants');
+assert(save.anchors >= 0, 'no negative anchors');
+
+save.anchors += MAP_UNLOCK_COST;
+assert(buyMap(save, 'c'), 'buy map C for 60');
+assert(mapUnlocked(save, 'c'), 'C unlocked by anchors');
+assert(!buyMap(save, 'c'), 'cannot buy twice');
 
 const store = memory();
 persistSave(store, save);
 const loaded = loadSave(store);
-assert(loaded.remnants === save.remnants, 'remnants persist');
-assert(loaded.upgrades.chest === save.upgrades.chest, 'upgrades persist');
+assert(loaded.anchors === save.anchors, 'anchors persist');
+assert(loaded.upgrades.gold === save.upgrades.gold, 'upgrades persist');
 assert(loaded.runs === save.runs, 'runs persist');
-assert(store.getItem(SAVE_KEY), 'saved under pristav-linie-v1');
+assert(loaded.unlockedMaps.includes('c'), 'unlocked maps persist');
+assert(store.getItem(SAVE_KEY), 'saved under pristav-linie-v2');
 
 const tamper = blankSave();
-tamper.upgrades.chest = 5;
+tamper.upgrades.gold = 5;
 const clamped = parseSave(tamper);
-assert(clamped.upgrades.chest === DEMO.rankCap, 'loaded meta clamped to demo cap');
+assert(clamped.upgrades.gold === DEMO.rankCap, 'loaded meta clamped to demo cap');
 
-const mods = modsFromSave({ upgrades: { chest: 1, lights: 1, yard: 1 } });
+const migrated = parseSave({ remnants: 40, upgrades: { chest: 1 }, runs: 2 });
+assert(migrated.anchors === 40, 'legacy remnants become anchors');
+assert(migrated.upgrades.gold === 1, 'legacy chest becomes starting gold');
+
+const mods = modsFromSave({ upgrades: { gold: 1, wall: 1, arsenal: 1, interest: 1, radar: 1 }, unlockedTowers: ['cannon', 'tesla', 'frost', 'mortar'] });
 const g = new Defense(0, mods);
-assert(g.money === LEVELS[0].money + 45, 'chest adds gold not remnants');
-assert(g.maxLives === 20, 'lights add lives');
-assert(g.towerCost('cannon') < TYPES.cannon.cost, 'yard discounts gold');
-assert(g.money !== save.remnants, 'gold is not remnants');
+assert(g.money === LEVELS[0].money + 50, 'starting gold adds credits not anchors');
+assert(g.maxLives === 23, 'dock wall adds lives');
+assert(g.towerStats({ type: 'cannon', level: 1 }).range > TYPES.cannon.range, 'radar adds range');
+assert(g.money !== save.anchors, 'credits are not anchors');
+assert(g.allowed('mortar'), 'arsenal unlocks mortar');
+
+const locked = new Defense(0, modsFromSave(blankSave()));
+assert(!locked.allowed('mortar'), 'mortar locked before arsenal');
+assert(locked.build(0, 'cannon'), 'free towers still build');
+assert(!locked.build(1, 'mortar'), 'cannot build locked mortar');
 
 const combat = new Defense(0, { money: 500 });
 assert(combat.build(0, 'cannon'), 'build cannon');
@@ -97,8 +131,8 @@ assert(combat.state === 'build' || combat.state === 'won' || combat.lives < comb
 const zap = new Defense(0, { money: 500 });
 zap.build(0, 'tesla');
 zap.startWave();
-zap.spawnEnemy('swarm');
-zap.spawnEnemy('swarm');
+zap.spawnEnemy('swarm1');
+zap.spawnEnemy('swarm1');
 const [aShip, bShip] = zap.enemies;
 aShip.x = zap.towers[0].x + 20; aShip.y = zap.towers[0].y; aShip.dist = 100;
 bShip.x = aShip.x + 40; bShip.y = aShip.y; bShip.dist = 110;
@@ -109,7 +143,7 @@ assert(aShip.hp < aShip.maxHp && bShip.hp < bShip.maxHp, 'tesla hits chained hul
 const frost = new Defense(0, { money: 400 });
 frost.build(0, 'frost');
 frost.startWave();
-frost.spawnEnemy('fast');
+frost.spawnEnemy('scout1');
 const runner = frost.enemies[0];
 runner.x = frost.towers[0].x + 18;
 runner.y = frost.towers[0].y;
@@ -120,8 +154,8 @@ assert(runner.slow > 0, 'cryo applies slow');
 const blast = new Defense(0, { money: 400 });
 blast.build(0, 'mortar');
 blast.startWave();
-blast.spawnEnemy('swarm');
-blast.spawnEnemy('swarm');
+blast.spawnEnemy('swarm1');
+blast.spawnEnemy('swarm1');
 const [a, b] = blast.enemies;
 a.x = 400; a.y = 300; a.dist = 200;
 b.x = 410; b.y = 305; b.dist = 210;
@@ -133,6 +167,14 @@ assert(shell && shell.type === 'mortar', 'mortar fired');
 shell.age = shell.duration;
 blast.step(0.01);
 assert(blast.events.some(e => e.type === 'blast') || blast.kills > 0 || blast.enemies.some(e => e.hp < e.maxHp), 'mortar blast lands');
+
+const boss = new Defense(0, { money: 800 });
+boss.build(0, 'cannon');
+boss.startWave();
+boss.spawnEnemy('juggernaut');
+boss.enemies[0].hp = 1;
+boss.hurt(boss.enemies[0], 50, 'tesla');
+assert(boss.bossDown, 'juggernaut counts as boss');
 
 const run = new Defense(0, { qa: true, money: 300 });
 ['cannon', 'cannon', 'frost', 'mortar'].forEach((type, i) => assert(run.build(i, type), `qa build ${type}`));
@@ -146,7 +188,7 @@ assert(run.events.some(e => e.type === 'end'), 'qa run emits end');
 
 const leak = new Defense(0);
 leak.startWave();
-leak.spawnEnemy('swarm');
+leak.spawnEnemy('swarm1');
 const hull = leak.enemies[0];
 hull.dist = leak.paths[0].length;
 leak.step(0.02);
@@ -160,15 +202,34 @@ lose.step(0.016);
 assert(lose.state === 'lost', 'zero lives ends run');
 assert(lose.events.some(e => e.type === 'end' && e.won === false), 'loss event');
 
-const src = await (await import('node:fs/promises')).readFile(new URL('../engine.mjs', import.meta.url), 'utf8')
-  + await (await import('node:fs/promises')).readFile(new URL('../game.js', import.meta.url), 'utf8')
-  + await (await import('node:fs/promises')).readFile(new URL('../index.html', import.meta.url), 'utf8');
+const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+const js = await readFile(new URL('../game.js', import.meta.url), 'utf8');
+const engine = await readFile(new URL('../engine.mjs', import.meta.url), 'utf8');
+const css = await readFile(new URL('../style.css', import.meta.url), 'utf8');
+const src = html + js + engine + css;
+const battle = html.split('id="battle"')[1].split('id="result"')[0];
 assert(!/stripe|paypal|checkout|payment|buy now|koupit hru/i.test(src), 'no payment gateway');
 assert(!/id="campaign"|Klasické sektory|Mapa sektorů/i.test(src), 'campaign is not the main path');
-assert(/fill="#b8ffd9" stroke="#071e27"/.test(src), 'remnant diamond mint fill + teal stroke');
-assert(/<circle cx="8" cy="8" r="6.2" fill="#ffd192"/.test(src), 'gold is amber coin');
-assert(/life-mark/.test(src) && /wave-bar/.test(src), 'lives lighthouse-dot and mint wave bar');
-assert(/kind === 'coins'/.test(src) && /kind === 'lighthouse'/.test(src), '24px meta icon glyphs in UI');
+assert(!/REPLACE/i.test(battle), 'replace out of scope');
+assert(!/ANCHORS|Anchors|remnant/i.test(battle), 'no anchors on battle HUD');
+assert(/id="hq-anchors"/.test(html) && /ANCHORS/.test(html), 'anchors on HQ');
+assert(/id="result-anchors"/.test(html), 'anchors on end-of-run');
+assert(/id="mode-build"/.test(html) && />BUILD</.test(html) && />UPGRADE</.test(html) && />SELL</.test(html), 'dock modes');
+assert(/START WAVE/.test(html) && /start-wave/.test(css), 'start wave amber dock button');
+assert(/mode-chip/.test(html) && /BUILDING/.test(html), 'mode chip BUILDING');
+assert(/hud-top/.test(html) && /id="money"/.test(html) && /id="lives"/.test(html) && /wave-bar/.test(html), 'top strip credits lives wave');
+assert(!/mission-name|sector-label/.test(html), 'no battle title');
+assert(/assets\/credits\.svg/.test(html) && /assets\/anchors\.svg/.test(html) && /assets\/lives\.svg/.test(html), 'hud icons');
+assert(/drawFog|lighthouse|fog/.test(js), 'flat overlay fog + lighthouse');
+assert(/level >= 2/.test(js) && /level >= 3/.test(js), 'tower L2/L3 extra detail');
+
+const anchorsSvg = await readFile(new URL('../assets/anchors.svg', import.meta.url), 'utf8');
+const creditsSvg = await readFile(new URL('../assets/credits.svg', import.meta.url), 'utf8');
+assert(/fill="none"[\s\S]*stroke="#b8ffd9"/.test(anchorsSvg), 'anchors hollow mint diamond');
+assert(/fill="#ffd192"/.test(creditsSvg) && /<circle/.test(creditsSvg), 'credits amber filled circle');
+assert((await readFile(new URL('../assets/ships/juggernaut.svg', import.meta.url), 'utf8')).includes('#ff8094'), 'juggernaut asset');
+assert((await readFile(new URL('../assets/ships/scout-l3.svg', import.meta.url), 'utf8')).length > 40, 'scout L3 asset');
+assert((await readFile(new URL('../assets/meta/radar.svg', import.meta.url), 'utf8')).length > 40, 'radar meta icon');
 
 if (fails.length) {
   console.error('FAIL');
@@ -176,6 +237,7 @@ if (fails.length) {
   process.exit(1);
 }
 console.log('ok', {
-  lossPay, winPay, r1, r2, remnants: save.remnants, runs: save.runs,
+  lossPay, winPay, r1, r2, anchors: save.anchors, runs: save.runs,
   kills: combat.kills, teslaBeams: zap.events.filter(e => e.type === 'beam').length, gold: g.money,
+  maps: LEVELS.map(l => l.id), pads: LEVELS.map(l => l.pads.length),
 });
