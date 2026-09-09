@@ -20,12 +20,12 @@ export const DEMO = {
 
 export const TYPES = {
   cannon: {
-    name: 'Cannon',
+    name: 'Kanón',
     role: 'Single',
-    tag: 'Single target',
+    tag: 'Jeden cíl',
     cost: 80,
     color: '#ffd192',
-    desc: 'Steady shot. Cheap first line.',
+    desc: 'Spolehlivá palba. Levný základ obrany.',
     damage: 24,
     range: 145,
     rate: 0.52,
@@ -33,32 +33,32 @@ export const TYPES = {
   tesla: {
     name: 'Tesla',
     role: 'Support',
-    tag: 'Chain arc',
+    tag: 'Řetězový výboj',
     cost: 140,
     color: '#7fd4ff',
-    desc: 'Arc jumps up to 3 hulls. Ignores armor.',
+    desc: 'Výboj přeskočí až na 3 lodě. Ignoruje pancíř.',
     damage: 16,
     range: 125,
     rate: 0.85,
   },
   frost: {
-    name: 'Cryo',
+    name: 'Kryo',
     role: 'Slow',
-    tag: 'Slow field',
+    tag: 'Zpomalení',
     cost: 105,
     color: '#8ecbff',
-    desc: 'Cuts speed by 45% for 2s. Place before damage.',
+    desc: 'Zpomalí lodě o 45 % na 2 s. Dej ho před silné věže.',
     damage: 8,
     range: 135,
     rate: 0.88,
   },
   mortar: {
-    name: 'Mortar',
+    name: 'Minomet',
     role: 'AOE',
-    tag: 'Area blast',
+    tag: 'Plošný zásah',
     cost: 155,
     color: '#c4a574',
-    desc: 'Shell hits every hull in the blast.',
+    desc: 'Granát zasáhne všechny lodě v okruhu.',
     damage: 30,
     range: 170,
     rate: 1.5,
@@ -66,35 +66,35 @@ export const TYPES = {
 };
 
 export const ENEMIES = {
-  swarm: { name: 'Skiff', role: 'Swarm', hp: 42, speed: 62, size: 11, color: '#8fb9a8', bounty: 9, harm: 1, armor: 0 },
-  fast: { name: 'Runner', role: 'Fast', hp: 34, speed: 108, size: 11, color: '#c5e0a8', bounty: 12, harm: 1, armor: 0 },
-  tank: { name: 'Ironclad', role: 'Tank', hp: 168, speed: 36, size: 19, color: '#8a97a6', bounty: 26, harm: 2, armor: 1 },
+  swarm: { name: 'Člun', role: 'Swarm', hp: 42, speed: 62, size: 11, color: '#8fb9a8', bounty: 9, harm: 1, armor: 0 },
+  fast: { name: 'Skútr', role: 'Fast', hp: 34, speed: 108, size: 11, color: '#c5e0a8', bounty: 12, harm: 1, armor: 0 },
+  tank: { name: 'Obrněnec', role: 'Tank', hp: 168, speed: 36, size: 19, color: '#8a97a6', bounty: 26, harm: 2, armor: 1 },
 };
 
 export const META_UPGRADES = [
   {
     id: 'chest',
-    name: 'Starting credits',
-    desc: 'More gold at deploy.',
+    name: 'Zásoba kreditů',
+    desc: 'Víc zlata na start hlídky.',
     icon: 'coins',
     max: 5,
-    label: n => (n ? `+${n * 45} gold` : 'No bonus yet'),
+    label: n => (n ? `+${n * 45} kreditů` : 'Zatím bez bonusu'),
   },
   {
     id: 'lights',
-    name: 'Stronger lighthouse',
-    desc: 'The lantern holds longer.',
+    name: 'Posílený maják',
+    desc: 'Maják vydrží víc zásahů, než zhasne.',
     icon: 'lighthouse',
     max: 5,
-    label: n => (n ? `+${n * 2} lives` : 'No bonus yet'),
+    label: n => (n ? `+${n * 2} k životům majáku` : 'Zatím bez bonusu'),
   },
   {
     id: 'yard',
-    name: 'Arsenal discount',
-    desc: 'Towers and upgrades cost less gold.',
+    name: 'Sleva v arzenálu',
+    desc: 'Věže i vylepšení jsou levnější.',
     icon: 'discount',
     max: 5,
-    label: n => (n ? `−${n * 7}% gold cost` : 'No bonus yet'),
+    label: n => (n ? `−${n * 7} % cena věží` : 'Zatím bez bonusu'),
   },
 ];
 
@@ -116,9 +116,9 @@ const PATROL_WAVES = [
 export const LEVELS = [
   {
     id: 'inner',
-    name: 'Inner Harbor',
-    area: 'NIGHT PATROL',
-    tip: 'Hold the bend. Cryo first, Cannon second.',
+    name: 'Vnitřní záliv',
+    area: 'NOČNÍ HLÍDKA',
+    tip: 'Drž zatáčku. Nejdřív Kryo, pak Kanón.',
     waves: PATROL_WAVES.length,
     money: 360,
     paths: [[[-40, 300], [140, 300], [260, 180], [430, 180], [540, 320], [700, 320], [800, 300], [960, 300]]],
@@ -126,9 +126,9 @@ export const LEVELS = [
   },
   {
     id: 'twin',
-    name: 'Twin Channel',
-    area: 'NIGHT PATROL',
-    tip: 'Two routes. Cover both banks or the lantern dies.',
+    name: 'Dva proudy',
+    area: 'NOČNÍ HLÍDKA',
+    tip: 'Dvě trasy. Pokryj oba břehy, nebo maják zhasne.',
     waves: PATROL_WAVES.length,
     money: 380,
     paths: [
@@ -185,6 +185,7 @@ export function stats(tower) {
   return {
     name: base.name,
     role: base.role,
+    tag: base.tag,
     desc: base.desc,
     color: base.color,
     damage: +(base.damage * (1 + (level - 1) * 0.38)).toFixed(1),

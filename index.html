@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="cs">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#071e27">
-  <meta name="description" content="Die, upgrade, hold the harbor one more run.">
+  <meta name="description" content="Udrž přístav. Roguelite tower defense: krátké hlídky, trvalá vylepšení a čtyři typy věží.">
   <title>Přístav — Poslední linie</title>
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./fonts.css">
@@ -14,124 +14,124 @@
   <div class="backdrop" aria-hidden="true"></div>
   <div class="app">
     <header class="topbar">
-      <button class="brand" id="home" aria-label="Headquarters">
+      <button class="brand" id="home" aria-label="Velitelství">
         <span class="brand-mark">Ⅱ</span>
-        <span>PŘÍSTAV<small>LAST LINE</small></span>
+        <span>PŘÍSTAV<small>POSLEDNÍ LINIE</small></span>
       </button>
       <div class="top-right">
         <span class="edition">DEMO</span>
-        <button id="sound" class="icon-btn" aria-label="Sound on" aria-pressed="false">♪</button>
-        <button id="help" class="icon-btn" aria-label="How to play">?</button>
+        <button id="sound" class="icon-btn" aria-label="Zapnout zvuk" aria-pressed="false">♪</button>
+        <button id="help" class="icon-btn" aria-label="Jak hrát">?</button>
       </div>
     </header>
 
-    <section id="hq" class="hq" aria-label="Headquarters">
+    <section id="hq" class="hq" aria-label="Velitelství">
       <div class="hq-heading">
         <div>
-          <div class="eyebrow"><span></span> HEADQUARTERS</div>
-          <h1>HOLD THE <em>HARBOR.</em></h1>
-          <p>Die, upgrade, hold one more run.</p>
+          <div class="eyebrow"><span></span> VELITELSTVÍ</div>
+          <h1>POSLEDNÍ <em>LINIE.</em></h1>
+          <p>Krátká hlídka. Ze zbytků flotily posílíš další výpad.</p>
         </div>
-        <div class="remnant-bank" aria-label="Remnants">
+        <div class="remnant-bank" aria-label="Zbytky">
           <svg class="remnant-mark" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.15 14.85 8 8 14.85 1.15 8Z" fill="#b8ffd9" stroke="#071e27" stroke-width="1.35" stroke-linejoin="round"/></svg>
           <b id="hq-remnants">0</b>
-          <span>REMNANTS</span>
+          <span>ZBYTKY</span>
         </div>
       </div>
       <p id="last-run" class="last-run hidden"></p>
       <div id="demo-cta" class="demo-cta hidden" role="status">
         <span class="eyebrow"><span></span> DEMO</span>
-        <h2>Full game coming.</h2>
-        <p>Patrols stay open. Further meta stays locked.</p>
+        <h2>Plná hra brzy.</h2>
+        <p>Hlídky zůstanou. Další meta je zamčená.</p>
       </div>
       <div id="upgrades" class="upgrade-grid"></div>
       <div class="patrol-row">
         <div id="maps" class="map-picks"></div>
-        <button class="primary" id="start-run">Deploy <span>→</span></button>
+        <button class="primary" id="start-run">Vyrazit <span>→</span></button>
       </div>
       <footer class="hq-foot">
-        <span><i></i> Remnants save on this device.</span>
-        <span>MOUSE / TOUCH / KEYS</span>
+        <span><i></i> Zbytky se ukládají na tomto zařízení.</span>
+        <span>MYŠ / DOTYK / KLÁVESNICE</span>
       </footer>
     </section>
 
-    <section id="battle" class="battle hidden" aria-label="Harbor defense">
+    <section id="battle" class="battle hidden" aria-label="Obrana přístavu">
       <div class="battle-main">
         <div class="mission-bar">
           <div class="mission-title">
-            <span id="sector-label" class="eyebrow">NIGHT PATROL</span>
-            <h2 id="mission-name">Inner Harbor</h2>
+            <span id="sector-label" class="eyebrow">NOČNÍ HLÍDKA</span>
+            <h2 id="mission-name">Vnitřní záliv</h2>
           </div>
           <div class="resources">
-            <div class="res gold" title="Credits">
+            <div class="res gold" title="Kredity">
               <svg class="gold-mark" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.2" fill="#ffd192"/></svg>
               <b id="money">360</b>
             </div>
-            <div class="res lives" title="Lives" id="lives-wrap">
+            <div class="res lives" title="Životy" id="lives-wrap">
               <svg class="life-mark" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.8 13.4 14.2H2.6Z" fill="#b8ffd9" stroke="#071e27" stroke-width="1.2" stroke-linejoin="round"/><circle cx="8" cy="6" r="1.55" fill="#ffd192"/></svg>
               <b id="lives">18</b>
             </div>
-            <div class="res wave" title="Wave">
+            <div class="res wave" title="Vlna">
               <span class="wave-bar" aria-hidden="true"><i id="wave-fill"></i></span>
               <b id="wave">0/8</b>
             </div>
           </div>
         </div>
         <div class="board-wrap">
-          <canvas id="board" tabindex="0" aria-label="Harbor map. Pick a tower, then a pad."></canvas>
-          <div class="board-tag"><span class="live-dot"></span><span id="board-state">BUILD</span></div>
+          <canvas id="board" tabindex="0" aria-label="Herní mapa. Vyber věž a pak stavební místo."></canvas>
+          <div class="board-tag"><span class="live-dot"></span><span id="board-state">PŘÍPRAVA</span></div>
           <div id="notice" class="notice" role="status" aria-live="polite"></div>
         </div>
         <div class="battle-toolbar">
           <div class="wave-preview">
-            <span id="next-label">NEXT WAVE</span>
-            <b id="next-enemies">10× Skiff</b>
+            <span id="next-label">PŘÍŠTÍ VLNA</span>
+            <b id="next-enemies">10× člun</b>
           </div>
           <div class="battle-actions">
-            <button class="small-btn" id="speed" aria-label="Game speed">1×</button>
-            <button class="small-btn" id="pause" aria-label="Pause">Ⅱ</button>
-            <button class="primary" id="send-wave">Send wave <span>→</span></button>
+            <button class="small-btn" id="speed" aria-label="Rychlost hry">1×</button>
+            <button class="small-btn" id="pause" aria-label="Pozastavit">Ⅱ</button>
+            <button class="primary" id="send-wave">Spustit vlnu <span>→</span></button>
           </div>
         </div>
       </div>
       <aside class="armory">
         <div class="armory-heading">
-          <span class="eyebrow">ARMORY</span>
-          <span>4 ROLES</span>
+          <span class="eyebrow">ARSENÁL</span>
+          <span>4 TYPY VĚŽÍ</span>
         </div>
-        <p class="armory-tip" id="build-hint">Pick a tower, then a pad.</p>
+        <p class="armory-tip" id="build-hint">Vyber věž a pak svítící místo.</p>
         <div id="tower-options" class="tower-grid"></div>
         <section class="inspector">
           <div class="inspector-title">
-            <span id="selection-label">TIP</span>
-            <button id="cancel-selection" class="text-btn hidden" aria-label="Clear selection">✕</button>
+            <span id="selection-label">RADA</span>
+            <button id="cancel-selection" class="text-btn hidden" aria-label="Zrušit výběr">✕</button>
           </div>
-          <h4 id="selection-name">Hold the bend.</h4>
-          <p id="selection-desc">Towers on corners keep hulls in range longer.</p>
+          <h4 id="selection-name">Drž zatáčku.</h4>
+          <p id="selection-desc">Věž u zatáčky drží lodě déle v dostřelu.</p>
           <div id="tower-stats" class="tower-stats hidden"></div>
           <div class="upgrade-actions hidden" id="upgrade-actions">
-            <button class="primary" id="upgrade">Upgrade</button>
-            <button class="text-btn sell" id="sell">Sell</button>
+            <button class="primary" id="upgrade">Vylepšit</button>
+            <button class="text-btn sell" id="sell">Prodat</button>
           </div>
         </section>
       </aside>
     </section>
 
-    <section id="result" class="result hidden" aria-label="Run over">
-      <span class="eyebrow" id="result-kicker">RUN OVER</span>
-      <h1 id="result-title">The lantern held.</h1>
+    <section id="result" class="result hidden" aria-label="Konec hlídky">
+      <span class="eyebrow" id="result-kicker">KONEC HLÍDKY</span>
+      <h1 id="result-title">Maják stále svítí.</h1>
       <div class="result-gain">
         <svg class="remnant-mark" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.15 14.85 8 8 14.85 1.15 8Z" fill="#b8ffd9" stroke="#071e27" stroke-width="1.35" stroke-linejoin="round"/></svg>
         <b id="result-remnants">+0</b>
-        <span>REMNANTS</span>
+        <span>ZBYTKY</span>
       </div>
       <div class="result-stats">
-        <div><b id="result-kills">0</b><span>SUNK</span></div>
-        <div><b id="result-wave">0</b><span>WAVE</span></div>
-        <div><b id="result-lives">0</b><span>LIVES</span></div>
+        <div><b id="result-kills">0</b><span>POTOPENO</span></div>
+        <div><b id="result-wave">0</b><span>VLNA</span></div>
+        <div><b id="result-lives">0</b><span>MAJÁK</span></div>
       </div>
-      <p id="result-note" class="result-note hidden">Full game coming.</p>
-      <button class="primary" id="to-hq">Headquarters <span>→</span></button>
+      <p id="result-note" class="result-note hidden">Plná hra brzy.</p>
+      <button class="primary" id="to-hq">Velitelství <span>→</span></button>
     </section>
   </div>
 
@@ -143,14 +143,14 @@
       <div id="modal-actions"></div>
     </div>
   </dialog>
-  <noscript><div class="no-script">JavaScript is required.</div></noscript>
+  <noscript><div class="no-script">Hra potřebuje zapnutý JavaScript.</div></noscript>
   <script>
     window.addEventListener('error', function (e) {
       if (document.getElementById('boot-error')) return;
       var p = document.createElement('p');
       p.id = 'boot-error';
       p.className = 'no-script';
-      p.textContent = 'Failed to start: ' + (e.message || 'unknown error');
+      p.textContent = 'Start selhal: ' + (e.message || 'neznámá chyba');
       document.body.appendChild(p);
     });
   </script>

@@ -49,7 +49,7 @@ let sound = false;
 let audio = null;
 try { sound = storage.getItem(SOUND_KEY) === 'true'; } catch {}
 
-const fmt = n => Math.round(n).toLocaleString('en-US');
+const fmt = n => Math.round(n).toLocaleString('cs-CZ');
 
 function tone(freq = 440, duration = .1, volume = .025, type = 'sine', end) {
   if (!sound || !audio) return;
@@ -84,7 +84,7 @@ function persist() {
 
 function syncSound() {
   $('sound').setAttribute('aria-pressed', String(sound));
-  $('sound').setAttribute('aria-label', sound ? 'Sound off' : 'Sound on');
+  $('sound').setAttribute('aria-label', sound ? 'Vypnout zvuk' : 'Zapnout zvuk');
   $('sound').textContent = sound ? '♫' : '♪';
 }
 
@@ -168,7 +168,7 @@ function drawHq() {
   $('demo-cta').classList.toggle('hidden', !demoCta(save.runs));
   if (save.last) {
     $('last-run').classList.remove('hidden');
-    $('last-run').textContent = `${save.last.won ? 'Held' : 'Broken'} · +${save.last.gain} remnants`;
+    $('last-run').textContent = `${save.last.won ? 'Výhra' : 'Ztráta'} · +${save.last.gain} zbytků`;
   } else $('last-run').classList.add('hidden');
 
   $('upgrades').innerHTML = META_UPGRADES.map(u => {
@@ -177,7 +177,7 @@ function drawHq() {
     const locked = !maxed && demoRankLocked(rank);
     const cost = META_COST[rank];
     const can = !maxed && !locked && save.remnants >= cost;
-    const label = maxed ? 'Max' : locked ? 'Full game coming' : `Buy · ${cost}`;
+    const label = maxed ? 'Maximum' : locked ? 'Plná hra brzy' : `Koupit · ${cost}`;
     return `<article class="upgrade-card ${locked ? 'locked' : ''}">
       <div class="upgrade-icon">${iconSvg(u.icon)}</div>
       <span class="rank">${rank} / ${u.max}</span>
@@ -200,7 +200,7 @@ function drawHq() {
     <button class="map-pick ${i === mapIndex ? 'selected' : ''}" data-map="${i}">
       <span class="eyebrow">${level.area}</span>
       <strong>${level.name}</strong>
-      <small>${qa ? 2 : level.waves} waves</small>
+      <small>${qa ? 2 : level.waves} vln</small>
     </button>`).join('');
   document.querySelectorAll('[data-map]').forEach(b => {
     b.onclick = () => { mapIndex = Number(b.dataset.map); drawHq(); };
@@ -234,7 +234,7 @@ function startRun(index = mapIndex) {
   $('sector-label').textContent = game.level.area;
   $('mission-name').textContent = game.level.name;
   $('speed').textContent = '1×';
-  notice('Build. Then send the first wave.', 3.4);
+  notice('Postav věže. Pak spusť první vlnu.', 3.4);
   resize();
   syncUI();
   canvas.focus({ preventScroll: true });
@@ -246,8 +246,8 @@ function showResult(won, gain) {
   paused = false;
   hideScreens();
   $('result').classList.remove('hidden');
-  $('result-kicker').textContent = won ? 'HELD' : 'BROKEN';
-  $('result-title').textContent = won ? 'The lantern held.' : 'The lantern went dark.';
+  $('result-kicker').textContent = won ? 'UDRŽENO' : 'PROLOMENO';
+  $('result-title').textContent = won ? 'Maják stále svítí.' : 'Maják zhasl.';
   $('result-remnants').textContent = `+${gain}`;
   $('result-kills').textContent = fmt(game.kills);
   $('result-wave').textContent = `${game.wave} / ${game.level.waves}`;
@@ -291,10 +291,10 @@ function resume() {
 function pause() {
   if (screen !== 'battle' || ['won', 'lost'].includes(game.state)) return;
   paused = true;
-  modal('PAUSE', 'Hold.', `<p>Towers keep the line.</p>`, [
-    ['Resume →', resume],
-    ['Redeploy', () => startRun(game.index), true],
-    ['Headquarters', showHq, true],
+  modal('PAUZA', 'Chvíle klidu.', `<p>Obrana počká. Věže drží pozice.</p>`, [
+    ['Pokračovat →', resume],
+    ['Začít znovu', () => startRun(game.index), true],
+    ['Velitelství', showHq, true],
   ]);
   syncUI();
 }
@@ -310,12 +310,12 @@ $('to-hq').onclick = showHq;
 $('help').onclick = () => {
   const wasPaused = paused;
   if (screen === 'battle') paused = true;
-  modal('FIELD NOTES', 'Hold the harbor.', `<ol class="help-list">
-    <li><b>Build on pads.</b> Four roles: Cannon, Tesla, Cryo, Mortar.</li>
-    <li><b>Gold</b> buys towers this run. <b>Remnants</b> stay at Headquarters.</li>
-    <li><b>Die or hold.</b> Spend remnants, deploy again.</li>
-    <li>1–4 tower · arrows pad · Enter build · U upgrade · space wave · P pause</li>
-  </ol>`, [['Got it →', () => {
+  modal('POLNÍ PŘÍRUČKA', 'Jak udržet přístav.', `<ol class="help-list">
+    <li><b>Stavěj na plošinách.</b> Čtyři věže: Kanón, Tesla, Kryo, Minomet.</li>
+    <li><b>Kredity</b> kupují věže v tomhle běhu. <b>Zbytky</b> zůstanou na velitelství.</li>
+    <li><b>Vyhraj nebo padni.</b> Utrať zbytky a vyraž znovu.</li>
+    <li>1–4 věž · šipky místo · Enter stavět · U vylepšit · mezerník vlna · P pauza</li>
+  </ol>`, [['Rozumím →', () => {
     closeModal();
     if (wasPaused) pause();
     else {
@@ -347,11 +347,11 @@ function endRun(won) {
 
 function makeTowerCards() {
   $('tower-options').innerHTML = Object.entries(TYPES).map(([type, t], i) => `
-    <button class="tower-card" data-tower="${type}" style="--accent:${t.color}" aria-label="${t.name}, ${t.role}">
+    <button class="tower-card" data-tower="${type}" style="--accent:${t.color}" aria-label="${t.name}, ${t.tag}">
       <canvas width="100" height="90" aria-hidden="true"></canvas>
       <span class="tower-cost"></span>
       <strong>${t.name}</strong>
-      <small>${t.role}</small>
+      <small>${t.tag}</small>
       <span class="tower-key">${i + 1}</span>
     </button>`).join('');
   document.querySelectorAll('[data-tower]').forEach(b => {
@@ -371,7 +371,7 @@ function chooseType(type) {
       canvas.focus({ preventScroll: true });
       return;
     }
-    notice('Need more gold.', 2, true);
+    notice('Na tuto věž chybí kredity.', 2, true);
   }
   blueprint = type;
   selected = -1;
@@ -389,7 +389,7 @@ function selectPad(i) {
       events();
     } else {
       selected = i;
-      notice('Need more gold.', 2, true);
+      notice('Nejdřív potřebuješ více kreditů.', 2, true);
     }
   } else {
     selected = i;
@@ -408,7 +408,7 @@ $('cancel-selection').onclick = clearSelection;
 $('upgrade').onclick = () => {
   if (paused) return;
   if (game.upgrade(selected)) { tone(660, .17, .045); events(); syncUI(); }
-  else notice('Need more gold.', 2, true);
+  else notice('Na vylepšení chybí kredity.', 2, true);
 };
 $('sell').onclick = () => {
   if (paused) return;
@@ -417,7 +417,7 @@ $('sell').onclick = () => {
 $('send-wave').onclick = () => {
   if (paused) return;
   readyAudio();
-  if (!game.towers.length) { notice('Build at least one tower.', 2.2, true); return; }
+  if (!game.towers.length) { notice('Nejdřív postav alespoň jednu věž.', 2.2, true); return; }
   if (game.startWave()) { events(); syncUI(); canvas.focus({ preventScroll: true }); }
 };
 $('speed').onclick = () => {
@@ -438,11 +438,11 @@ function syncUI() {
   $('lives-wrap').classList.toggle('low-health', game.lives < Math.ceil(game.maxLives * .4));
   $('wave').textContent = `${game.wave}/${game.level.waves}`;
   $('wave-fill').style.width = `${Math.min(1, game.wave / game.level.waves) * 100}%`;
-  $('board-state').textContent = paused ? 'PAUSE' : game.state === 'wave' ? 'INBOUND' : game.state === 'build' ? 'BUILD' : game.state === 'won' ? 'HELD' : 'BROKEN';
+  $('board-state').textContent = paused ? 'PAUZA' : game.state === 'wave' ? 'FLOTILA NA DOHLED' : game.state === 'build' ? 'PŘÍPRAVA' : game.state === 'won' ? 'UDRŽENO' : 'PROLOMENO';
   $('send-wave').disabled = game.state !== 'build' || paused;
-  $('send-wave').innerHTML = game.state === 'wave' ? 'Wave live' : game.state === 'won' ? 'Held' : 'Send wave <span>→</span>';
-  $('next-label').textContent = game.state === 'wave' ? 'STILL AFLOAT' : 'NEXT WAVE';
-  if (game.state === 'wave') $('next-enemies').textContent = `${game.enemies.length + game.queue.length} hulls`;
+  $('send-wave').innerHTML = game.state === 'wave' ? 'Vlna probíhá' : game.state === 'won' ? 'Hotovo' : 'Spustit vlnu <span>→</span>';
+  $('next-label').textContent = game.state === 'wave' ? 'ZBÝVÁ ZASTAVIT' : 'PŘÍŠTÍ VLNA';
+  if (game.state === 'wave') $('next-enemies').textContent = `${game.enemies.length + game.queue.length} lodí`;
   else if (game.state === 'build') $('next-enemies').textContent = waveText(wavePlan(game.index, game.wave + 1, qa));
   else $('next-enemies').textContent = '—';
 
@@ -461,23 +461,23 @@ function syncUI() {
   $('tower-stats').classList.toggle('hidden', !s);
   $('upgrade-actions').classList.toggle('hidden', !t);
   if (s) {
-    $('selection-label').textContent = t ? `TOWER / ${t.level} OF 3` : 'READY';
-    $('selection-name').textContent = `${s.name} · ${s.role}`;
+    $('selection-label').textContent = t ? `VĚŽ / ${t.level} ZE 3` : 'PŘIPRAVENO';
+    $('selection-name').textContent = `${s.name} · ${s.tag}`;
     $('selection-desc').textContent = s.desc;
-    const mid = `<div><b>${Math.round(s.damage)}</b><span>DMG</span></div>`;
-    $('tower-stats').innerHTML = `${mid}<div><b>${s.range} m</b><span>RANGE</span></div><div><b>${s.rate.toFixed(1)} s</b><span>RATE</span></div>`;
+    const mid = `<div><b>${Math.round(s.damage)}</b><span>POŠKOZENÍ</span></div>`;
+    $('tower-stats').innerHTML = `${mid}<div><b>${s.range} m</b><span>DOSTŘEL</span></div><div><b>${s.rate.toFixed(1)} s</b><span>INTERVAL</span></div>`;
   } else {
-    $('selection-label').textContent = selected >= 0 ? 'PAD' : 'TIP';
-    $('selection-name').textContent = selected >= 0 ? `Pad ${selected + 1}` : 'Corners.';
-    $('selection-desc').textContent = selected >= 0 ? 'Pick a tower.' : game.level.tip;
+    $('selection-label').textContent = selected >= 0 ? 'PLOŠINA' : 'RADA';
+    $('selection-name').textContent = selected >= 0 ? `Plošina ${selected + 1}` : 'Zatáčky.';
+    $('selection-desc').textContent = selected >= 0 ? 'Vyber typ věže.' : game.level.tip;
   }
   if (t) {
-    $('upgrade').textContent = t.level >= 3 ? 'Maxed' : `Upgrade · ${game.upgradePrice(t)}`;
+    $('upgrade').textContent = t.level >= 3 ? 'Maximum' : `Vylepšit · ${game.upgradePrice(t)}`;
     $('upgrade').disabled = t.level >= 3 || game.money < game.upgradePrice(t) || paused;
-    $('sell').textContent = `Sell · ${Math.floor(t.invested * .7)} gold`;
+    $('sell').textContent = `Prodat · ${Math.floor(t.invested * .7)} kreditů`;
     $('sell').disabled = paused;
   }
-  $('build-hint').textContent = blueprint ? `${TYPES[blueprint].name}: click a pad.` : 'Pick a tower, then a pad.';
+  $('build-hint').textContent = blueprint ? `${TYPES[blueprint].name}: klikni na svítící místo.` : 'Vyber věž a pak svítící místo.';
 }
 
 function events() {
@@ -486,9 +486,9 @@ function events() {
     if (e.type === 'kill') { effects.push({ ...e, age: 0, life: .55 }); if (game.kills % 3 === 0) tone(75, .12, .025, 'triangle', 35); }
     if (e.type === 'blast') { effects.push({ ...e, age: 0, life: .4 }); tone(58, .18, .04, 'triangle', 30); }
     if (e.type === 'beam' || e.type === 'aura') effects.push({ ...e, age: 0, life: e.frost ? .2 : .18 });
-    if (e.type === 'leak') { effects.push({ ...e, age: 0, life: .65 }); notice(`Leak −${e.harm}`, 1.5, true); tone(140, .3, .05, 'sawtooth', 75); }
-    if (e.type === 'wave') { notice(`Wave ${e.wave} / ${game.level.waves}`, 2); tone(330, .2, .04); }
-    if (e.type === 'clear') { notice(`Clear. +${e.bonus} gold.`, 2.4); tone(660, .25, .04); }
+    if (e.type === 'leak') { effects.push({ ...e, age: 0, life: .65 }); notice(`Loď proplula! Maják −${e.harm}`, 1.5, true); tone(140, .3, .05, 'sawtooth', 75); }
+    if (e.type === 'wave') { notice(`Vlna ${e.wave} / ${game.level.waves} připlouvá`, 2); tone(330, .2, .04); }
+    if (e.type === 'clear') { notice(`Čistá voda. Bonus +${e.bonus} kreditů.`, 2.4); tone(660, .25, .04); }
     if (e.type === 'end') endRun(e.won);
   }
   game.events.length = 0;
