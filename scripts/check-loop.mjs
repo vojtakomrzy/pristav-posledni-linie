@@ -291,9 +291,13 @@ assert(/level >= 2/.test(drawSrc), 'tower L2/L3 extra detail');
 assert(/drawImage/.test(drawSrc) && /towerAsset/.test(drawSrc) && /shipAsset/.test(drawSrc), 'sprites via drawImage from assets');
 assert(/mapAsset/.test(drawSrc) && /assets\/maps/.test(drawSrc), 'PNG map bases');
 assert(/FX_FOG/.test(drawSrc) && /lighter/.test(drawSrc), 'fog overlay + lighthouse cone');
+assert(/blitFrame/.test(drawSrc) && /asset_manifest/.test(drawSrc), 'sheets via asset_manifest frames');
 assert(/7fd4ff/.test(drawSrc) && /drawPadGlow/.test(drawSrc), 'cyan pad glow');
 assert(!/pixi/i.test(uiSrc + drawSrc), 'vanilla canvas, not Pixi');
+assert(!/\bfort\b|vite|:5173|three\.js|webgl/i.test(uiSrc + drawSrc), 'Přístav only — no FORT/Vite/3D leftovers');
 const pkg = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
+assert(pkg.name === 'pristav-posledni-linie', 'repo is Přístav — Poslední linie');
+assert(pkg.scripts.web.includes('8765'), 'web server is 8765 not Vite 5173');
 assert(pkg.build.productName === 'Port — Last Line', 'store productName matches title');
 const electronSrc = await readFile(new URL('../electron/main.js', import.meta.url), 'utf8');
 assert(/Port — Last Line/.test(electronSrc), 'electron title matches store string');
@@ -316,6 +320,14 @@ assert(mapA[0] === 0x89 && mapA[1] === 0x50 && mapA.length > 1000, 'map A PNG ba
 assert((await readFile(new URL('../assets/maps/b.png', import.meta.url))).length > 1000, 'map B PNG base');
 assert((await readFile(new URL('../assets/fx/fog.png', import.meta.url)))[0] === 0x89, 'fog overlay PNG');
 assert((await readFile(new URL('../assets/fx/lighthouse.svg', import.meta.url), 'utf8')).includes('#ffd192'), 'lighthouse sprite');
+const pack = JSON.parse(await readFile(new URL('../assets/asset_manifest.json', import.meta.url), 'utf8'));
+assert(pack.maps.a_demo.file.includes('map_a_demo') && pack.towers.frame_w === 96, 'grafik asset_manifest maps+towers');
+assert(pack.enemies.sheets.scout.frames[0].w === 110 && pack.fx.fog_overlay.includes('fog_overlay'), 'grafik enemy sheets + fog');
+assert((await readFile(new URL('../assets/towers/tower_cannon_sheet.png', import.meta.url)))[0] === 0x89, 'cannon sheet png');
+assert((await readFile(new URL('../assets/enemies/enemy_scout_sheet.png', import.meta.url))).length > 100, 'scout sheet png');
+assert((await readFile(new URL('../assets/maps/map_c_horseshoe.png', import.meta.url)))[0] === 0x89, 'map C named png');
+assert((await readFile(new URL('../assets/fx/lighthouse_cone.png', import.meta.url)))[0] === 0x89, 'cone png');
+assert((await readFile(new URL('../assets/hud/dock_tesla.png', import.meta.url))).length > 100, 'dock tesla icon');
 
 if (fails.length) {
   console.error('FAIL');

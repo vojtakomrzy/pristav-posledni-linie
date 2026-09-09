@@ -409,7 +409,7 @@ h1 em { color: var(--mint); font-style: normal; }
 .tower-card:hover, .tower-card.selected { border-color: var(--accent); }
 .tower-card.unaffordable .tower-cost { color: var(--red); }
 .tower-card.locked { opacity: .45; }
-.tower-card canvas { width: 48px; height: 48px; display: block; margin: 0 auto 4px; }
+.tower-card img { width: 48px; height: 48px; display: block; margin: 0 auto 4px; object-fit: contain; }
 .tower-card strong { display: block; font-size: 11px; letter-spacing: .4px; }
 .tower-card .tower-cost {
   font: 600 18px 'Barlow Condensed', sans-serif;
@@ -431,7 +431,7 @@ h1 em { color: var(--mint); font-style: normal; }
   color: var(--muted);
 }
 .start-wave {
-  background: var(--amber);
+  background: var(--amber) url('./assets/hud/btn_start_wave.png') center/cover no-repeat;
   color: #2a1a08;
   border: 2px solid var(--amber);
   border-radius: 4px;
