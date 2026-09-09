@@ -1,0 +1,252 @@
+{
+  "version": 1,
+  "coordinate_space": {
+    "width": 960,
+    "height": 600
+  },
+  "maps": {
+    "a_demo": {
+      "file": "assets/maps/map_a_demo.png",
+      "coords": "maps-coords.json#A"
+    },
+    "b_merge": {
+      "file": "assets/maps/map_b_merge.png",
+      "coords": "maps-coords.json#B"
+    },
+    "c_horseshoe": {
+      "file": "assets/maps/map_c_horseshoe.png",
+      "coords": "maps-coords.json#C"
+    }
+  },
+  "towers": {
+    "frame_w": 96,
+    "frame_h": 96,
+    "rows": [
+      "l1",
+      "l2",
+      "l3"
+    ],
+    "columns": [
+      "cannon",
+      "tesla",
+      "cryo",
+      "mortar"
+    ],
+    "sheets": {
+      "cannon": {
+        "file": "towers/tower_cannon_sheet.png",
+        "frames": [
+          {
+            "id": "cannon_l1",
+            "x": 0,
+            "y": 0,
+            "w": 96,
+            "h": 96
+          },
+          {
+            "id": "cannon_l2",
+            "x": 0,
+            "y": 96,
+            "w": 96,
+            "h": 96
+          },
+          {
+            "id": "cannon_l3",
+            "x": 0,
+            "y": 192,
+            "w": 96,
+            "h": 96
+          }
+        ]
+      },
+      "tesla": {
+        "file": "towers/tower_tesla_sheet.png",
+        "frames": [
+          {
+            "id": "tesla_l1",
+            "x": 0,
+            "y": 0,
+            "w": 96,
+            "h": 96
+          },
+          {
+            "id": "tesla_l2",
+            "x": 0,
+            "y": 96,
+            "w": 96,
+            "h": 96
+          },
+          {
+            "id": "tesla_l3",
+            "x": 0,
+            "y": 192,
+            "w": 96,
+            "h": 96
+          }
+        ]
+      },
+      "cryo": {
+        "file": "towers/tower_cryo_sheet.png",
+        "frames": [
+          {
+            "id": "cryo_l1",
+            "x": 0,
+            "y": 0,
+            "w": 96,
+            "h": 96
+          },
+          {
+            "id": "cryo_l2",
+            "x": 0,
+            "y": 96,
+            "w": 96,
+            "h": 96
+          },
+          {
+            "id": "cryo_l3",
+            "x": 0,
+            "y": 192,
+            "w": 96,
+            "h": 96
+          }
+        ]
+      },
+      "mortar": {
+        "file": "towers/tower_mortar_sheet.png",
+        "frames": [
+          {
+            "id": "mortar_l1",
+            "x": 0,
+            "y": 0,
+            "w": 96,
+            "h": 96
+          },
+          {
+            "id": "mortar_l2",
+            "x": 0,
+            "y": 96,
+            "w": 96,
+            "h": 96
+          },
+          {
+            "id": "mortar_l3",
+            "x": 0,
+            "y": 192,
+            "w": 96,
+            "h": 96
+          }
+        ]
+      }
+    }
+  },
+  "enemies": {
+    "frame_w": 110,
+    "frame_h": 64,
+    "sheets": {
+      "scout": {
+        "file": "enemies/enemy_scout_sheet.png",
+        "frames": [
+          {
+            "id": "scout_l1",
+            "x": 0,
+            "y": 0,
+            "w": 110,
+            "h": 64
+          },
+          {
+            "id": "scout_l2",
+            "x": 110,
+            "y": 0,
+            "w": 110,
+            "h": 64
+          },
+          {
+            "id": "scout_l3",
+            "x": 220,
+            "y": 0,
+            "w": 110,
+            "h": 64
+          }
+        ]
+      },
+      "swarm": {
+        "file": "enemies/enemy_swarm_sheet.png",
+        "frames": [
+          {
+            "id": "swarm_l1",
+            "x": 0,
+            "y": 0,
+            "w": 110,
+            "h": 64
+          },
+          {
+            "id": "swarm_l2",
+            "x": 110,
+            "y": 0,
+            "w": 110,
+            "h": 64
+          },
+          {
+            "id": "swarm_l3",
+            "x": 220,
+            "y": 0,
+            "w": 110,
+            "h": 64
+          }
+        ]
+      },
+      "ironclad": {
+        "file": "enemies/enemy_ironclad_sheet.png",
+        "frames": [
+          {
+            "id": "ironclad_l1",
+            "x": 0,
+            "y": 0,
+            "w": 110,
+            "h": 64
+          },
+          {
+            "id": "ironclad_l2",
+            "x": 110,
+            "y": 0,
+            "w": 110,
+            "h": 64
+          },
+          {
+            "id": "ironclad_l3",
+            "x": 220,
+            "y": 0,
+            "w": 110,
+            "h": 64
+          }
+        ]
+      },
+      "juggernaut": {
+        "file": "enemies/enemy_juggernaut.png",
+        "frames": [
+          {
+            "id": "juggernaut",
+            "x": 0,
+            "y": 0,
+            "w": 160,
+            "h": 72
+          }
+        ]
+      }
+    }
+  },
+  "hud": {
+    "icon_credits": "assets/hud/icon_credits.png",
+    "icon_anchors": "assets/hud/icon_anchors.png",
+    "icon_lives": "assets/hud/icon_lives.png",
+    "dock_cannon": "assets/hud/dock_cannon.png",
+    "dock_tesla": "assets/hud/dock_tesla.png",
+    "dock_cryo": "assets/hud/dock_cryo.png",
+    "dock_mortar": "assets/hud/dock_mortar.png",
+    "btn_start_wave": "assets/hud/btn_start_wave.png"
+  },
+  "fx": {
+    "fog_overlay": "assets/fx/fog_overlay.png",
+    "lighthouse_cone": "assets/fx/lighthouse_cone.png"
+  }
+}

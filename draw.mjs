@@ -1,6 +1,12 @@
 import { TYPES, W, H } from './content.mjs';
 
 export const TOWER_LEVELS = [1, 2, 3];
+export const MANIFEST_URL = './assets/asset_manifest.json';
+export const FX_FOG = './assets/fx/fog_overlay.png';
+export const FX_LIGHTHOUSE = './assets/fx/lighthouse.svg';
+export const FX_CONE = './assets/fx/lighthouse_cone.png';
+
+const MAP_KEYS = { a: 'a_demo', b: 'b_merge', c: 'c_horseshoe' };
 
 export function towerAsset(type, level = 1) {
   const lv = level >= 3 ? 3 : level >= 2 ? 2 : 1;
@@ -13,30 +19,61 @@ export function shipAsset(family, tier = 1) {
 }
 
 export function mapAsset(id) {
-  return `./assets/maps/${id}.png`;
+  const named = { a: 'map_a_demo', b: 'map_b_merge', c: 'map_c_horseshoe' }[id];
+  return named ? `./assets/maps/${named}.png` : `./assets/maps/${id}.png`;
 }
 
-export const FX_FOG = './assets/fx/fog.png';
-export const FX_LIGHTHOUSE = './assets/fx/lighthouse.svg';
+export function assetUrl(file) {
+  if (!file) return '';
+  const p = String(file).replace(/^\.\//, '');
+  return p.startsWith('assets/') ? './' + p : './assets/' + p;
+}
 
 const images = new Map();
+let manifest = null;
 
-function assetUrls() {
-  const towers = ['cannon', 'tesla', 'cryo', 'mortar'].flatMap(type => TOWER_LEVELS.map(level => towerAsset(type, level)));
-  const ships = ['scout', 'swarm', 'ironclad'].flatMap(family => [1, 2, 3].map(tier => shipAsset(family, tier)));
-  return [...towers, ...ships, shipAsset('juggernaut'), mapAsset('a'), mapAsset('b'), mapAsset('c'), FX_FOG, FX_LIGHTHOUSE];
+export function getManifest() {
+  return manifest;
 }
 
-export function loadAssets() {
-  if (typeof Image === 'undefined') return Promise.resolve(images);
-  return Promise.all(assetUrls().map(src => new Promise(resolve => {
+function collectUrls() {
+  const urls = new Set([
+    ...['cannon', 'tesla', 'cryo', 'mortar'].flatMap(type => TOWER_LEVELS.map(level => towerAsset(type, level))),
+    ...['scout', 'swarm', 'ironclad'].flatMap(family => [1, 2, 3].map(tier => shipAsset(family, tier))),
+    shipAsset('juggernaut'), mapAsset('a'), mapAsset('b'), mapAsset('c'),
+    FX_FOG, FX_LIGHTHOUSE, FX_CONE,
+    './assets/maps/a.png', './assets/maps/b.png', './assets/maps/c.png', './assets/fx/fog.png',
+  ]);
+  if (manifest) {
+    for (const m of Object.values(manifest.maps || {})) urls.add(assetUrl(m.file));
+    for (const sheet of Object.values(manifest.towers?.sheets || {})) urls.add(assetUrl(sheet.file));
+    for (const sheet of Object.values(manifest.enemies?.sheets || {})) urls.add(assetUrl(sheet.file));
+    for (const file of Object.values(manifest.hud || {})) urls.add(assetUrl(file));
+    for (const file of Object.values(manifest.fx || {})) urls.add(assetUrl(file));
+  }
+  return [...urls];
+}
+
+function loadImage(src) {
+  return new Promise(resolve => {
     if (images.has(src)) { resolve(images.get(src)); return; }
     const img = new Image();
     img.decoding = 'async';
     img.onload = () => { images.set(src, img); resolve(img); };
     img.onerror = () => resolve(null);
     img.src = src;
-  }))).then(() => images);
+  });
+}
+
+export async function loadAssets() {
+  if (typeof Image === 'undefined') return images;
+  if (typeof fetch === 'function') {
+    try {
+      manifest = await fetch(MANIFEST_URL).then(r => r.json());
+    } catch { manifest = null; }
+  }
+  await Promise.all(collectUrls().map(loadImage));
+  return images;
 }
 
 function pic(src) {
@@ -54,6 +91,32 @@ function blit(c, img, x, y, w, h, angle = 0, alpha = 1) {
   return true;
 }
 
+function blitFrame(c, img, frame, x, y, w, h, angle = 0) {
+  if (!img || !frame) return false;
+  c.save();
+  c.translate(x, y);
+  if (angle) c.rotate(angle);
+  c.drawImage(img, frame.x, frame.y, frame.w, frame.h, -w / 2, -h / 2, w, h);
+  c.restore();
+  return true;
+}
+
+function towerFrame(type, level = 1) {
+  const lv = level >= 3 ? 3 : level >= 2 ? 2 : 1;
+  const sheet = manifest?.towers?.sheets?.[type];
+  const frame = sheet?.frames?.[lv - 1];
+  const img = pic(assetUrl(sheet?.file));
+  return img && frame ? { img, frame } : null;
+}
+
+function shipFrame(family, tier = 1) {
+  const sheet = manifest?.enemies?.sheets?.[family];
+  const frames = sheet?.frames || [];
+  const frame = family === 'juggernaut' ? frames[0] : frames[Math.max(0, (tier || 1) - 1)];
+  const img = pic(assetUrl(sheet?.file));
+  return img && frame ? { img, frame } : null;
+}
+
 export function circle(c, x, y, r, fill, stroke, width = 1) {
   c.beginPath();
   c.arc(x, y, r, 0, Math.PI * 2);
@@ -64,6 +127,8 @@ export function circle(c, x, y, r, fill, stroke, width = 1) {
 export function turret(c, x, y, type, angle = -Math.PI / 2, level = 1, scale = 1) {
   const grow = 1 + (level - 1) * 0.16;
   const size = 48 * scale * grow;
+  const packed = towerFrame(type, level);
+  if (packed && blitFrame(c, packed.img, packed.frame, x, y, size, size)) return;
   if (blit(c, pic(towerAsset(type, level)), x, y, size, size)) return;
 
   const color = TYPES[type].color;
@@ -207,6 +272,13 @@ function drawLighthouseCone(ctx, x, y, low, clock, reduced) {
   const sweep = reduced ? -2.35 : -2.35 + Math.sin(clock * 0.22) * 0.18;
   ctx.translate(x, y - 36);
   ctx.globalCompositeOperation = 'lighter';
+  const coneImg = pic(assetUrl(manifest?.fx?.lighthouse_cone)) || pic(FX_CONE);
+  if (coneImg) {
+    ctx.rotate(sweep);
+    ctx.drawImage(coneImg, 0, -40, 300, 180);
+    ctx.restore();
+    return;
+  }
   const cone = ctx.createLinearGradient(0, 0, 280, 30);
   cone.addColorStop(0, low ? 'rgba(255,128,148,0.42)' : 'rgba(255,209,146,0.5)');
   cone.addColorStop(0.35, low ? 'rgba(255,128,148,0.12)' : 'rgba(255,209,146,0.16)');
@@ -254,7 +326,7 @@ function drawLighthouse(ctx, x, y, low, clock, reduced, skipTower = false) {
 }
 
 function drawFog(ctx, clock, reduced) {
-  const fog = pic(FX_FOG);
+  const fog = pic(assetUrl(manifest?.fx?.fog_overlay)) || pic(FX_FOG) || pic('./assets/fx/fog.png');
   if (fog) {
     ctx.save();
     ctx.globalAlpha = reduced ? 0.22 : 0.32;
@@ -293,8 +365,18 @@ function drawShip(ctx, e) {
   ctx.save();
   ctx.translate(e.x, e.y);
   circle(ctx, 0, 8, e.size * 1.15, e.ring + '55', e.ring, 1.6);
-  const img = pic(shipAsset(e.family, e.tier || 1));
+  const packed = shipFrame(e.family, e.tier || 1);
   const s = e.size;
+  if (packed) {
+    ctx.rotate(e.angle);
+    const w = s * 4.4;
+    const h = w * (packed.frame.h / packed.frame.w);
+    ctx.globalAlpha = e.flash > 0 ? 0.85 : 1;
+    ctx.drawImage(packed.img, packed.frame.x, packed.frame.y, packed.frame.w, packed.frame.h, -w / 2, -h / 2, w, h);
+    ctx.restore();
+    return;
+  }
+  const img = pic(shipAsset(e.family, e.tier || 1));
   if (img) {
     ctx.rotate(e.angle);
     const w = s * 4.4;
@@ -391,18 +473,13 @@ export function renderBoard(ctx, game, view, ui) {
   ctx.fillStyle = '#041016';
   ctx.fillRect(-40, -40, W + 80, H + 80);
 
-  const base = pic(mapAsset(game.level.id));
+  const base = pic(mapAsset(game.level.id)) || pic(assetUrl(manifest?.maps?.[MAP_KEYS[game.level.id]]?.file));
   if (base) ctx.drawImage(base, 0, 0, W, H);
-
-  game.level.pads.forEach(([x, y]) => {
-    ctx.beginPath();
-    ctx.ellipse(x, y + 6, 34, 22, 0, 0, Math.PI * 2);
-    ctx.fillStyle = '#0a2229aa';
-    ctx.fill();
-  });
 
   const foam = game.level.foam || 1;
   for (const points of game.level.paths) drawPath(ctx, points, foam, clock, reduced, !!base);
+
+  drawFog(ctx, clock, reduced);
 
   const [lx, ly] = game.level.lighthouse;
   drawLighthouse(ctx, lx, ly, game.lives < Math.ceil(game.maxLives * .4), clock, reduced, !!base);
@@ -477,6 +554,5 @@ export function renderBoard(ctx, game, view, ui) {
     ctx.globalAlpha = 1;
   }
 
-  drawFog(ctx, clock, reduced);
   ctx.restore();
 }

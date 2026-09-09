@@ -4,7 +4,7 @@ import {
   loadSave, persistSave, modsFromSave, buyMeta, buyMap, applyRunPayout,
   demoRankLocked, demoCta, mapUnlocked, metaCost,
 } from './engine.mjs';
-import { turret, renderBoard, loadAssets } from './draw.mjs';
+import { renderBoard, loadAssets } from './draw.mjs';
 
 const $ = id => document.getElementById(id);
 const canvas = $('board');
@@ -324,13 +324,12 @@ function endRun(won) {
 function makeTowerCards() {
   $('tower-options').innerHTML = Object.entries(TYPES).map(([type, t], i) => `
     <button class="tower-card" data-tower="${type}" style="--accent:${t.color}" aria-label="${t.name}, ${t.role}">
-      <canvas width="96" height="96" aria-hidden="true"></canvas>
+      <img src="./assets/hud/dock_${type}.png" width="48" height="48" alt="">
       <strong>${t.name}</strong>
       <span class="tower-cost"></span>
       <span class="tower-key">${i + 1}</span>
     </button>`).join('');
   document.querySelectorAll('[data-tower]').forEach(b => {
-    turret(b.querySelector('canvas').getContext('2d'), 48, 48, b.dataset.tower, -.55, 1, 1.55);
     b.onclick = () => chooseType(b.dataset.tower);
   });
 }
