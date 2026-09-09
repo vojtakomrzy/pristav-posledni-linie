@@ -7,6 +7,8 @@
   "license": "UNLICENSED",
   "scripts": {
     "start": "electron .",
+    "web": "python3 -m http.server 8765",
+    "test": "node scripts/check-loop.mjs",
     "dist": "electron-builder --win portable"
   },
   "build": {
@@ -20,7 +22,7 @@
       "style.css",
       "fonts.css",
       "game.js",
-      "engine.js",
+      "engine.mjs",
       "harbor.png",
       "favicon.svg",
       "icon.png",
