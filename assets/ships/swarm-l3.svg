@@ -1,7 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 28" fill="none">
-  <ellipse cx="26" cy="24" rx="16" ry="3.4" fill="#b8ffd9" opacity=".5"/>
-  <path d="M8 22 V8 h6 v6 h4 V6 h8 v8 h4 V8 h6 v14 H8Z" fill="#172427"/>
-  <rect x="10" y="9.2" width="3.4" height="2" fill="#ffd192"/>
-  <rect x="21" y="7.2" width="6" height="2.4" fill="#ffd192"/>
-  <rect x="34" y="9.2" width="3.4" height="2" fill="#ffd192"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="72" height="32" viewBox="0 0 72 32" fill="none">
+  <ellipse cx="36" cy="28" rx="24" ry="3.4" fill="#b8ffd9" opacity=".52"/>
+  <path d="M2 22 L16 6 L22 22 L16 26 Z" fill="#172427"/>
+  <path d="M24 20 L36 4 L48 20 L36 26 Z" fill="#1e2e2c"/>
+  <path d="M50 22 L64 7 L70 22 L64 26 Z" fill="#172427"/>
+  <path d="M14 14h6v8H14Z M32 10h8v12h-8Z M52 14h6v8h-6Z" fill="#243230"/>
+  <rect x="16" y="16" width="4" height="2" fill="#b8ffd9"/>
+  <rect x="34" y="12" width="6" height="2.4" fill="#b8ffd9"/>
+  <rect x="54" y="16" width="4" height="2" fill="#b8ffd9"/>
 </svg>

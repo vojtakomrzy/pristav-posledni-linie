@@ -4,7 +4,7 @@ import {
   loadSave, persistSave, modsFromSave, buyMeta, buyMap, applyRunPayout,
   demoRankLocked, demoCta, mapUnlocked, metaCost,
 } from './engine.mjs';
-import { turret, renderBoard } from './draw.mjs';
+import { turret, renderBoard, loadAssets } from './draw.mjs';
 
 const $ = id => document.getElementById(id);
 const canvas = $('board');
@@ -269,7 +269,7 @@ function pause() {
   paused = true;
   modal('PAUSE', 'Hold.', `<p>Towers keep the line.</p>`, [
     ['Resume →', resume],
-    ['Redeploy', () => startRun(game.index), true],
+    ['New patrol', () => startRun(game.index), true],
     ['Headquarters', showHq, true],
   ]);
   syncUI();
@@ -289,7 +289,7 @@ $('help').onclick = () => {
   modal('FIELD NOTES', 'Hold the harbor.', `<ol class="help-list">
     <li><b>Build on pads.</b> Four roles: Cannon, Tesla, Cryo, Mortar.</li>
     <li><b>Credits</b> buy towers this run. <b>Anchors</b> stay at Headquarters.</li>
-    <li><b>Die or hold.</b> Spend anchors, deploy again.</li>
+    <li><b>Die or hold.</b> Spend anchors, start another patrol.</li>
     <li>1–4 tower · arrows pad · Enter build · U upgrade · space wave · P pause</li>
   </ol>`, [['Got it →', () => {
     closeModal();
@@ -437,7 +437,7 @@ function syncUI() {
   const chip = paused ? 'PAUSE' : dockMode === 'upgrade' ? 'UPGRADING' : dockMode === 'sell' ? 'SELLING' : 'BUILDING';
   $('mode-chip').textContent = chip;
   $('send-wave').disabled = game.state !== 'build' || paused;
-  $('send-wave').textContent = game.state === 'wave' ? 'WAVE LIVE' : game.state === 'won' ? 'HELD' : 'START WAVE';
+  $('send-wave').textContent = 'START WAVE';
   $('next-enemies').textContent = nextWaveLabel({
     radar: game.mods.radar,
     state: game.state,
@@ -591,6 +591,7 @@ function frame(ms) {
 
 makeTowerCards();
 drawHq();
+loadAssets().then(() => makeTowerCards());
 requestAnimationFrame(frame);
 
 window.__pristavQa = qa ? {

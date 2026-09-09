@@ -1,5 +1,59 @@
 import { TYPES, W, H } from './content.mjs';
 
+export const TOWER_LEVELS = [1, 2, 3];
+
+export function towerAsset(type, level = 1) {
+  const lv = level >= 3 ? 3 : level >= 2 ? 2 : 1;
+  return `./assets/towers/${type}-l${lv}.svg`;
+}
+
+export function shipAsset(family, tier = 1) {
+  if (family === 'juggernaut') return './assets/ships/juggernaut.svg';
+  return `./assets/ships/${family}-l${tier}.svg`;
+}
+
+export function mapAsset(id) {
+  return `./assets/maps/${id}.png`;
+}
+
+export const FX_FOG = './assets/fx/fog.png';
+export const FX_LIGHTHOUSE = './assets/fx/lighthouse.svg';
+
+const images = new Map();
+
+function assetUrls() {
+  const towers = ['cannon', 'tesla', 'cryo', 'mortar'].flatMap(type => TOWER_LEVELS.map(level => towerAsset(type, level)));
+  const ships = ['scout', 'swarm', 'ironclad'].flatMap(family => [1, 2, 3].map(tier => shipAsset(family, tier)));
+  return [...towers, ...ships, shipAsset('juggernaut'), mapAsset('a'), mapAsset('b'), mapAsset('c'), FX_FOG, FX_LIGHTHOUSE];
+}
+
+export function loadAssets() {
+  if (typeof Image === 'undefined') return Promise.resolve(images);
+  return Promise.all(assetUrls().map(src => new Promise(resolve => {
+    if (images.has(src)) { resolve(images.get(src)); return; }
+    const img = new Image();
+    img.decoding = 'async';
+    img.onload = () => { images.set(src, img); resolve(img); };
+    img.onerror = () => resolve(null);
+    img.src = src;
+  }))).then(() => images);
+}
+
+function pic(src) {
+  return images.get(src) || null;
+}
+
+function blit(c, img, x, y, w, h, angle = 0, alpha = 1) {
+  if (!img || !img.width) return false;
+  c.save();
+  c.globalAlpha *= alpha;
+  c.translate(x, y);
+  if (angle) c.rotate(angle);
+  c.drawImage(img, -w / 2, -h / 2, w, h);
+  c.restore();
+  return true;
+}
+
 export function circle(c, x, y, r, fill, stroke, width = 1) {
   c.beginPath();
   c.arc(x, y, r, 0, Math.PI * 2);
@@ -8,8 +62,11 @@ export function circle(c, x, y, r, fill, stroke, width = 1) {
 }
 
 export function turret(c, x, y, type, angle = -Math.PI / 2, level = 1, scale = 1) {
-  const color = TYPES[type].color;
   const grow = 1 + (level - 1) * 0.16;
+  const size = 40 * scale * grow;
+  if (blit(c, pic(towerAsset(type, level)), x, y, size, size)) return;
+
+  const color = TYPES[type].color;
   c.save();
   c.translate(x, y);
   c.scale(scale * grow, scale * grow);
@@ -117,21 +174,27 @@ function offsetPoly(points, amount) {
   return out;
 }
 
-function drawPath(ctx, points, foamSide, clock, reduced) {
+function drawPath(ctx, points, foamSide, clock, reduced, faint) {
   ctx.beginPath();
   points.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y));
   ctx.lineJoin = 'round';
   ctx.lineCap = 'round';
-  ctx.strokeStyle = '#041318';
-  ctx.lineWidth = 42;
-  ctx.stroke();
-  ctx.strokeStyle = '#0a2a32';
-  ctx.lineWidth = 34;
-  ctx.stroke();
+  if (!faint) {
+    ctx.strokeStyle = '#041318';
+    ctx.lineWidth = 42;
+    ctx.stroke();
+    ctx.strokeStyle = '#0a2a32';
+    ctx.lineWidth = 34;
+    ctx.stroke();
+  } else {
+    ctx.strokeStyle = '#0e2428aa';
+    ctx.lineWidth = 28;
+    ctx.stroke();
+  }
   const foam = offsetPoly(points, 20 * foamSide);
   ctx.beginPath();
   foam.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y));
-  ctx.strokeStyle = '#b8ffd955';
+  ctx.strokeStyle = faint ? '#b8ffd933' : '#b8ffd955';
   ctx.lineWidth = 3;
   ctx.setLineDash([5, 9]);
   ctx.lineDashOffset = reduced ? 0 : -clock * 10;
@@ -139,43 +202,67 @@ function drawPath(ctx, points, foamSide, clock, reduced) {
   ctx.setLineDash([]);
 }
 
-function drawLighthouse(ctx, x, y, low, clock, reduced) {
+function drawLighthouseCone(ctx, x, y, low, clock, reduced) {
   ctx.save();
   const sweep = reduced ? -2.35 : -2.35 + Math.sin(clock * 0.22) * 0.18;
-  ctx.translate(x, y - 28);
-  const cone = ctx.createLinearGradient(0, 0, 260, 40);
-  cone.addColorStop(0, 'rgba(255,209,146,0.32)');
+  ctx.translate(x, y - 36);
+  ctx.globalCompositeOperation = 'lighter';
+  const cone = ctx.createLinearGradient(0, 0, 280, 30);
+  cone.addColorStop(0, low ? 'rgba(255,128,148,0.42)' : 'rgba(255,209,146,0.5)');
+  cone.addColorStop(0.35, low ? 'rgba(255,128,148,0.12)' : 'rgba(255,209,146,0.16)');
   cone.addColorStop(1, 'rgba(255,209,146,0)');
   ctx.fillStyle = cone;
   ctx.beginPath();
   ctx.moveTo(0, 0);
-  ctx.lineTo(Math.cos(sweep - 0.32) * 280, Math.sin(sweep - 0.32) * 280);
-  ctx.lineTo(Math.cos(sweep + 0.32) * 280, Math.sin(sweep + 0.32) * 280);
+  ctx.lineTo(Math.cos(sweep - 0.28) * 320, Math.sin(sweep - 0.28) * 320);
+  ctx.lineTo(Math.cos(sweep + 0.28) * 320, Math.sin(sweep + 0.28) * 320);
   ctx.closePath();
   ctx.fill();
   ctx.restore();
+}
 
+function drawLighthouse(ctx, x, y, low, clock, reduced, skipTower = false) {
+  drawLighthouseCone(ctx, x, y, low, clock, reduced);
+  if (skipTower) {
+    circle(ctx, x, y - 40, 6, low ? '#ff8094' : '#ffd192');
+    ctx.fillStyle = low ? 'rgba(255,128,148,0.28)' : 'rgba(255,209,146,0.38)';
+    ctx.beginPath();
+    ctx.arc(x, y - 40, 14, 0, Math.PI * 2);
+    ctx.fill();
+    return;
+  }
+  if (!blit(ctx, pic(FX_LIGHTHOUSE), x, y - 10, 52, 78)) {
+    ctx.beginPath();
+    ctx.moveTo(x - 10, y + 18);
+    ctx.lineTo(x - 6, y - 16);
+    ctx.lineTo(x + 6, y - 16);
+    ctx.lineTo(x + 10, y + 18);
+    ctx.closePath();
+    ctx.fillStyle = '#c5d6ce';
+    ctx.fill();
+    ctx.strokeStyle = '#e2eee855';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+    ctx.fillStyle = '#9bb0a8';
+    ctx.fillRect(x - 8, y - 20, 16, 6);
+  }
+  circle(ctx, x, y - 40, 6, low ? '#ff8094' : '#ffd192');
+  ctx.fillStyle = low ? 'rgba(255,128,148,0.28)' : 'rgba(255,209,146,0.38)';
   ctx.beginPath();
-  ctx.moveTo(x - 10, y + 18);
-  ctx.lineTo(x - 6, y - 16);
-  ctx.lineTo(x + 6, y - 16);
-  ctx.lineTo(x + 10, y + 18);
-  ctx.closePath();
-  ctx.fillStyle = '#c5d6ce';
-  ctx.fill();
-  ctx.strokeStyle = '#e2eee855';
-  ctx.lineWidth = 1.2;
-  ctx.stroke();
-  ctx.fillStyle = '#9bb0a8';
-  ctx.fillRect(x - 8, y - 20, 16, 6);
-  circle(ctx, x, y - 26, 5, low ? '#ff8094' : '#ffd192');
-  ctx.fillStyle = 'rgba(255,209,146,0.35)';
-  ctx.beginPath();
-  ctx.arc(x, y - 26, 11, 0, Math.PI * 2);
+  ctx.arc(x, y - 40, 14, 0, Math.PI * 2);
   ctx.fill();
 }
 
 function drawFog(ctx, clock, reduced) {
+  const fog = pic(FX_FOG);
+  if (fog) {
+    ctx.save();
+    ctx.globalAlpha = reduced ? 0.22 : 0.32;
+    const drift = reduced ? 0 : (clock * 18) % (W + 120);
+    ctx.drawImage(fog, drift - 80, 0, W + 160, H);
+    ctx.drawImage(fog, drift - 80 - (W + 160), 0, W + 160, H);
+    ctx.restore();
+  }
   if (reduced) {
     const g = ctx.createLinearGradient(0, 0, 0, H);
     g.addColorStop(0, 'rgba(8, 28, 34, 0.28)');
@@ -185,7 +272,7 @@ function drawFog(ctx, clock, reduced) {
     return;
   }
   ctx.save();
-  ctx.globalAlpha = 0.12;
+  ctx.globalAlpha = fog ? 0.08 : 0.12;
   for (let i = 0; i < 6; i++) {
     const x = ((clock * 12 + i * 190) % (W + 280)) - 140;
     const y = 40 + i * 88;
@@ -205,9 +292,19 @@ function drawFog(ctx, clock, reduced) {
 function drawShip(ctx, e) {
   ctx.save();
   ctx.translate(e.x, e.y);
-  circle(ctx, 0, 8, e.size * 1.15, e.ring + '55', e.ring, 1.4);
-  ctx.rotate(e.angle);
+  circle(ctx, 0, 8, e.size * 1.15, e.ring + '55', e.ring, 1.6);
+  const img = pic(shipAsset(e.family, e.tier || 1));
   const s = e.size;
+  if (img) {
+    ctx.rotate(e.angle);
+    const w = s * 3.4;
+    const h = w * (img.naturalHeight / img.naturalWidth || 0.5);
+    ctx.globalAlpha = e.flash > 0 ? 0.85 : 1;
+    ctx.drawImage(img, -w / 2, -h / 2, w, h);
+    ctx.restore();
+    return;
+  }
+  ctx.rotate(e.angle);
   const t = e.tier || 1;
   if (e.family === 'swarm') {
     const boats = t >= 3 ? 2 : 3;
@@ -261,6 +358,27 @@ function drawShip(ctx, e) {
   ctx.restore();
 }
 
+function drawPadGlow(ctx, x, y, { tower, hot }) {
+  const glow = ctx.createRadialGradient(x, y, 2, x, y, 34);
+  glow.addColorStop(0, hot ? 'rgba(127,212,255,0.5)' : tower ? 'rgba(127,212,255,0.16)' : 'rgba(127,212,255,0.32)');
+  glow.addColorStop(1, 'rgba(127,212,255,0)');
+  ctx.fillStyle = glow;
+  ctx.beginPath();
+  ctx.arc(x, y, 34, 0, Math.PI * 2);
+  ctx.fill();
+  circle(ctx, x, y, 22, '#071e27cc', hot ? '#7fd4ff' : tower ? '#7eab92aa' : '#7fd4ffcc', hot ? 2.4 : 1.6);
+  if (!tower) {
+    ctx.strokeStyle = hot ? '#7fd4ff' : '#7fd4ff99';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(x - 6, y);
+    ctx.lineTo(x + 6, y);
+    ctx.moveTo(x, y - 6);
+    ctx.lineTo(x, y + 6);
+    ctx.stroke();
+  }
+}
+
 export function renderBoard(ctx, game, view, ui) {
   const { viewW, viewH, mapX, mapY, mapScale, clock, reduced } = view;
   const { selected, hover, blueprint, dockMode, effects } = ui;
@@ -270,24 +388,24 @@ export function renderBoard(ctx, game, view, ui) {
   ctx.translate(mapX, mapY);
   ctx.scale(mapScale, mapScale);
 
-  ctx.fillStyle = '#071e27';
+  ctx.fillStyle = '#041016';
   ctx.fillRect(-40, -40, W + 80, H + 80);
+
+  const base = pic(mapAsset(game.level.id));
+  if (base) ctx.drawImage(base, 0, 0, W, H);
 
   game.level.pads.forEach(([x, y]) => {
     ctx.beginPath();
     ctx.ellipse(x, y + 6, 34, 22, 0, 0, Math.PI * 2);
-    ctx.fillStyle = '#0a2229';
+    ctx.fillStyle = '#0a2229aa';
     ctx.fill();
-    ctx.strokeStyle = '#e2eee812';
-    ctx.lineWidth = 1;
-    ctx.stroke();
   });
 
   const foam = game.level.foam || 1;
-  for (const points of game.level.paths) drawPath(ctx, points, foam, clock, reduced);
+  for (const points of game.level.paths) drawPath(ctx, points, foam, clock, reduced, !!base);
 
   const [lx, ly] = game.level.lighthouse;
-  drawLighthouse(ctx, lx, ly, game.lives < Math.ceil(game.maxLives * .4), clock, reduced);
+  drawLighthouse(ctx, lx, ly, game.lives < Math.ceil(game.maxLives * .4), clock, reduced, !!base);
 
   const active = selected >= 0 ? selected : hover;
   const t = game.towerAt(active);
@@ -299,19 +417,7 @@ export function renderBoard(ctx, game, view, ui) {
   }
 
   game.level.pads.forEach(([x, y], i) => {
-    const tower = game.towerAt(i);
-    const isSelected = i === selected || i === hover;
-    circle(ctx, x, y, 24, '#071e27cc', isSelected ? '#b8ffd9' : tower ? '#7eab9266' : '#b8ffd970', isSelected ? 2 : 1.4);
-    if (!tower) {
-      ctx.strokeStyle = isSelected ? '#b8ffd9' : '#99ccb966';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(x - 6, y);
-      ctx.lineTo(x + 6, y);
-      ctx.moveTo(x, y - 6);
-      ctx.lineTo(x, y + 6);
-      ctx.stroke();
-    }
+    drawPadGlow(ctx, x, y, { tower: game.towerAt(i), hot: i === selected || i === hover });
   });
 
   for (const tw of game.towers) {
@@ -328,7 +434,7 @@ export function renderBoard(ctx, game, view, ui) {
       const w = e.family === 'juggernaut' ? 44 : e.family === 'ironclad' ? 36 : 26;
       ctx.fillStyle = '#071e27';
       ctx.fillRect(e.x - w / 2, e.y - e.size - 12, w, 3);
-      ctx.fillStyle = e.slow > 0 ? '#e2eee8' : e.family === 'juggernaut' ? '#ff8094' : e.family === 'ironclad' ? '#ffd192' : '#b8ffd9';
+      ctx.fillStyle = e.slow > 0 ? '#e2eee8' : e.family === 'juggernaut' ? '#ff8094' : e.family === 'ironclad' ? '#ffd192' : e.family === 'scout' ? '#7fd4ff' : '#b8ffd9';
       ctx.fillRect(e.x - w / 2, e.y - e.size - 12, w * Math.max(0, e.hp / e.maxHp), 3);
     }
   }

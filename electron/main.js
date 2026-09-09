@@ -8,7 +8,7 @@ function createWindow() {
     minWidth: 1100,
     minHeight: 720,
     backgroundColor: '#071e27',
-    title: 'Přístav — Poslední linie',
+    title: 'Port — Last Line',
     icon: path.join(__dirname, '..', 'icon.png'),
     autoHideMenuBar: true,
     webPreferences: {

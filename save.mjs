@@ -16,7 +16,7 @@ export const META_UPGRADES = [
   {
     id: 'gold',
     name: 'Starting gold',
-    desc: 'Deploy with a heavier purse.',
+    desc: 'Start patrols with a heavier purse.',
     icon: 'gold',
     max: 3,
     costs: [25, 55, 95],
