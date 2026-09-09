@@ -1,22 +1,41 @@
 export const W = 960;
 export const H = 600;
 
+export const PALETTE = {
+  bg: '#071e27',
+  mint: '#b8ffd9',
+  amber: '#ffd192',
+  text: '#e2eee8',
+  danger: '#ff8094',
+};
+
+export const SAVE_KEY = 'pristav-linie-v1';
+export const SOUND_KEY = 'pristav-linie-sound';
+export const LEGACY_META_KEY = 'pristav-defense-meta';
+
+export const DEMO = {
+  runs: 2,
+  rankCap: 1,
+};
+
 export const TYPES = {
   cannon: {
     name: 'Kanón',
-    tag: 'Spolehlivá palba',
-    cost: 85,
-    color: '#b8ffd9',
-    desc: 'Rychlá přesná střelba na jeden cíl. Levný základ obrany.',
-    damage: 22,
+    role: 'Single',
+    tag: 'Jeden cíl',
+    cost: 80,
+    color: '#ffd192',
+    desc: 'Spolehlivá palba. Levný základ obrany.',
+    damage: 24,
     range: 145,
-    rate: 0.55,
+    rate: 0.52,
   },
   tesla: {
     name: 'Tesla',
+    role: 'Support',
     tag: 'Řetězový výboj',
     cost: 140,
-    color: '#c8b5ff',
+    color: '#7fd4ff',
     desc: 'Výboj přeskočí až na 3 lodě. Ignoruje pancíř.',
     damage: 16,
     range: 125,
@@ -24,156 +43,108 @@ export const TYPES = {
   },
   frost: {
     name: 'Kryo',
+    role: 'Slow',
     tag: 'Zpomalení',
-    cost: 110,
-    color: '#80dfff',
-    desc: 'Zpomalí lodě o 45 % na 2 sekundy. Dej ho před silné věže.',
+    cost: 105,
+    color: '#8ecbff',
+    desc: 'Zpomalí lodě o 45 % na 2 s. Dej ho před silné věže.',
     damage: 8,
     range: 135,
-    rate: 0.9,
+    rate: 0.88,
   },
   mortar: {
     name: 'Minomet',
+    role: 'AOE',
     tag: 'Plošný zásah',
-    cost: 165,
-    color: '#ffd192',
-    desc: 'Granát zasáhne všechny lodě v okruhu 65 m. Účinný na skupiny.',
-    damage: 32,
-    range: 175,
-    rate: 1.55,
+    cost: 155,
+    color: '#c4a574',
+    desc: 'Granát zasáhne všechny lodě v okruhu.',
+    damage: 30,
+    range: 170,
+    rate: 1.5,
   },
 };
 
 export const ENEMIES = {
-  clun: { name: 'Člun', hp: 48, speed: 58, size: 14, color: '#8fb9a8', bounty: 12, harm: 1, armor: 0 },
-  skuter: { name: 'Skútr', hp: 36, speed: 92, size: 12, color: '#c5e0a8', bounty: 14, harm: 1, armor: 0 },
-  obrnenec: { name: 'Obrněnec', hp: 150, speed: 40, size: 18, color: '#8a97a6', bounty: 24, harm: 2, armor: 1 },
-  boss: { name: 'Dreadnought', hp: 1100, speed: 26, size: 28, color: '#c45a6e', bounty: 90, harm: 5, armor: 1 },
+  swarm: { name: 'Člun', role: 'Swarm', hp: 42, speed: 62, size: 11, color: '#8fb9a8', bounty: 9, harm: 1, armor: 0 },
+  fast: { name: 'Skútr', role: 'Fast', hp: 34, speed: 108, size: 11, color: '#c5e0a8', bounty: 12, harm: 1, armor: 0 },
+  tank: { name: 'Obrněnec', role: 'Tank', hp: 168, speed: 36, size: 19, color: '#8a97a6', bounty: 26, harm: 2, armor: 1 },
 };
+
+export const META_UPGRADES = [
+  {
+    id: 'chest',
+    name: 'Zásoba kreditů',
+    desc: 'Víc zlata na start hlídky.',
+    icon: 'coins',
+    max: 5,
+    label: n => (n ? `+${n * 45} kreditů` : 'Zatím bez bonusu'),
+  },
+  {
+    id: 'lights',
+    name: 'Posílený maják',
+    desc: 'Maják vydrží víc zásahů, než zhasne.',
+    icon: 'lighthouse',
+    max: 5,
+    label: n => (n ? `+${n * 2} k životům majáku` : 'Zatím bez bonusu'),
+  },
+  {
+    id: 'yard',
+    name: 'Sleva v arzenálu',
+    desc: 'Věže i vylepšení jsou levnější.',
+    icon: 'discount',
+    max: 5,
+    label: n => (n ? `−${n * 7} % cena věží` : 'Zatím bez bonusu'),
+  },
+];
+
+export const META_COST = [10, 18, 28, 40, 55];
 
 const repeat = (type, n) => Array(n).fill(type);
 
-export function wavePlan(index, wave) {
-  const plans = [
-    [
-      repeat('clun', 9),
-      [...repeat('clun', 8), ...repeat('skuter', 4)],
-      [...repeat('clun', 7), ...repeat('skuter', 6)],
-      [...repeat('clun', 8), ...repeat('obrnenec', 3)],
-      [...repeat('clun', 10), ...repeat('skuter', 5), ...repeat('obrnenec', 2)],
-    ],
-    [
-      [...repeat('clun', 8), ...repeat('skuter', 4)],
-      [...repeat('clun', 8), ...repeat('skuter', 6)],
-      [...repeat('clun', 6), ...repeat('obrnenec', 4)],
-      [...repeat('skuter', 10), ...repeat('obrnenec', 3)],
-      [...repeat('clun', 10), ...repeat('skuter', 6), ...repeat('obrnenec', 4)],
-      [...repeat('clun', 8), ...repeat('skuter', 6), ...repeat('obrnenec', 4), 'boss'],
-    ],
-    [
-      [...repeat('clun', 6), ...repeat('clun', 6)],
-      [...repeat('clun', 6), ...repeat('skuter', 8)],
-      [...repeat('skuter', 10), ...repeat('obrnenec', 4)],
-      [...repeat('clun', 8), ...repeat('skuter', 8), ...repeat('obrnenec', 4)],
-      [...repeat('clun', 10), ...repeat('obrnenec', 6)],
-      [...repeat('clun', 8), ...repeat('skuter', 8), ...repeat('obrnenec', 4), 'boss'],
-    ],
-    [
-      [...repeat('clun', 6), ...repeat('obrnenec', 4)],
-      [...repeat('clun', 8), ...repeat('obrnenec', 6)],
-      [...repeat('skuter', 8), ...repeat('obrnenec', 6)],
-      [...repeat('clun', 10), ...repeat('obrnenec', 8)],
-      [...repeat('skuter', 10), ...repeat('obrnenec', 8)],
-      [...repeat('clun', 8), ...repeat('skuter', 6), ...repeat('obrnenec', 8)],
-      [...repeat('obrnenec', 10), 'boss'],
-    ],
-    [
-      [...repeat('clun', 8), ...repeat('skuter', 8)],
-      [...repeat('clun', 8), ...repeat('obrnenec', 6)],
-      [...repeat('skuter', 12), ...repeat('obrnenec', 6)],
-      [...repeat('clun', 10), ...repeat('skuter', 8), ...repeat('obrnenec', 6)],
-      [...repeat('obrnenec', 10), ...repeat('skuter', 8)],
-      [...repeat('clun', 12), ...repeat('obrnenec', 8)],
-      [...repeat('skuter', 10), ...repeat('obrnenec', 10)],
-      [...repeat('clun', 8), ...repeat('skuter', 8), ...repeat('obrnenec', 8), 'boss'],
-    ],
-    [
-      [...repeat('clun', 8), ...repeat('clun', 8)],
-      [...repeat('clun', 8), ...repeat('skuter', 10)],
-      [...repeat('skuter', 10), ...repeat('obrnenec', 6)],
-      [...repeat('clun', 10), ...repeat('skuter', 8), ...repeat('obrnenec', 6)],
-      [...repeat('obrnenec', 10), ...repeat('skuter', 10)],
-      [...repeat('clun', 10), ...repeat('obrnenec', 10)],
-      [...repeat('skuter', 12), ...repeat('obrnenec', 10)],
-      [...repeat('clun', 8), ...repeat('skuter', 10), ...repeat('obrnenec', 10)],
-      [...repeat('obrnenec', 12), ...repeat('skuter', 8), 'boss'],
-    ],
-  ];
-  return plans[index]?.[wave - 1] || [];
-}
+const PATROL_WAVES = [
+  repeat('swarm', 10),
+  [...repeat('swarm', 8), ...repeat('fast', 5)],
+  [...repeat('swarm', 10), ...repeat('fast', 6)],
+  [...repeat('swarm', 8), ...repeat('tank', 3)],
+  [...repeat('fast', 10), ...repeat('swarm', 6)],
+  [...repeat('tank', 4), ...repeat('swarm', 8), ...repeat('fast', 5)],
+  [...repeat('swarm', 12), ...repeat('fast', 8), ...repeat('tank', 4)],
+  [...repeat('tank', 6), ...repeat('fast', 10), ...repeat('swarm', 10)],
+];
 
 export const LEVELS = [
   {
-    name: 'První světla',
-    area: 'VNITŘNÍ ZÁLIV',
-    waves: 5,
-    money: 340,
-    tip: 'Věž u zatáčky drží nepřátele déle v dostřelu.',
+    id: 'inner',
+    name: 'Vnitřní záliv',
+    area: 'NOČNÍ HLÍDKA',
+    tip: 'Drž zatáčku. Nejdřív Kryo, pak Kanón.',
+    waves: PATROL_WAVES.length,
+    money: 360,
     paths: [[[-40, 300], [140, 300], [260, 180], [430, 180], [540, 320], [700, 320], [800, 300], [960, 300]]],
     pads: [[210, 248], [360, 248], [500, 250], [620, 250], [730, 240], [250, 368], [470, 392], [640, 392]],
   },
   {
-    name: 'Hadí průliv',
-    area: 'PRŮLIV',
-    waves: 6,
-    money: 380,
-    tip: 'Hadí zatáčky natahují lodě. Kryo je tu zlato.',
-    paths: [[[-40, 120], [180, 120], [250, 250], [180, 390], [320, 500], [520, 500], [620, 380], [520, 240], [680, 140], [820, 220], [960, 300]]],
-    pads: [[160, 196], [300, 196], [220, 330], [360, 430], [500, 430], [580, 310], [700, 210], [790, 300], [430, 300]],
-  },
-  {
+    id: 'twin',
     name: 'Dva proudy',
-    area: 'DVOJITÝ KANÁL',
-    waves: 6,
-    money: 400,
-    tip: 'Dvě trasy chtějí pokrytí obou břehů.',
+    area: 'NOČNÍ HLÍDKA',
+    tip: 'Dvě trasy. Pokryj oba břehy, nebo maják zhasne.',
+    waves: PATROL_WAVES.length,
+    money: 380,
     paths: [
       [[-40, 140], [200, 140], [380, 140], [560, 200], [740, 240], [960, 300]],
       [[-40, 460], [200, 460], [380, 460], [560, 400], [740, 360], [960, 300]],
     ],
     pads: [[160, 212], [340, 212], [500, 268], [680, 196], [160, 388], [340, 388], [500, 332], [680, 404], [430, 300]],
   },
-  {
-    name: 'Železný příliv',
-    area: 'DOCKY',
-    waves: 7,
-    money: 430,
-    tip: 'Tesla ignoruje pancíř obrněnců.',
-    paths: [[[-40, 300], [120, 180], [280, 120], [460, 180], [540, 340], [420, 460], [600, 520], [780, 420], [860, 300], [960, 300]]],
-    pads: [[150, 250], [300, 196], [430, 250], [500, 270], [360, 380], [520, 430], [680, 450], [780, 340], [640, 250]],
-  },
-  {
-    name: 'Černá flotila',
-    area: 'OTEVŘENÉ MOŘE',
-    waves: 8,
-    money: 460,
-    tip: 'Minomet čistí shluky. Drž dostřel na rovince.',
-    paths: [[[-40, 80], [220, 90], [360, 220], [220, 360], [380, 500], [620, 500], [760, 380], [640, 220], [780, 140], [960, 300]]],
-    pads: [[180, 168], [320, 168], [280, 300], [360, 420], [520, 430], [680, 430], [700, 300], [720, 210], [840, 220], [500, 300]],
-  },
-  {
-    name: 'Poslední linie',
-    area: 'MAJÁK',
-    waves: 9,
-    money: 500,
-    tip: 'Obě trasy končí u majáku. Nech jednu stranu holou a padneš.',
-    paths: [
-      [[-40, 90], [180, 90], [340, 160], [480, 120], [680, 180], [800, 220], [960, 300]],
-      [[-40, 510], [180, 510], [340, 440], [520, 500], [700, 430], [820, 380], [960, 300]],
-    ],
-    pads: [[140, 162], [300, 228], [460, 196], [620, 140], [740, 268], [140, 438], [300, 372], [460, 404], [640, 468], [760, 340], [520, 300]],
-  },
 ];
+
+const SPACING = { swarm: 0.28, fast: 0.34, tank: 0.72 };
+
+export function wavePlan(index, wave, qa = false) {
+  const plans = qa ? PATROL_WAVES.slice(0, 2) : PATROL_WAVES;
+  return plans[wave - 1] || [];
+}
 
 export function distance(a, b) {
   const ax = Array.isArray(a) ? a[0] : a.x;
@@ -213,9 +184,11 @@ export function stats(tower) {
   const level = tower.level || 1;
   return {
     name: base.name,
+    role: base.role,
+    tag: base.tag,
     desc: base.desc,
     color: base.color,
-    damage: base.damage * (1 + (level - 1) * 0.38),
+    damage: +(base.damage * (1 + (level - 1) * 0.38)).toFixed(1),
     range: Math.round(base.range + (level - 1) * 18),
     rate: +(base.rate * (1 - (level - 1) * 0.08)).toFixed(2),
   };
@@ -225,29 +198,131 @@ export function upgradeCost(tower) {
   return Math.round(TYPES[tower.type].cost * (0.65 + tower.level * 0.5));
 }
 
-function starsFromLives(lives, maxLives = 20) {
-  if (lives >= maxLives) return 3;
-  if (lives >= Math.ceil(maxLives * 0.6)) return 2;
-  return 1;
-}
-
 export function normalizeMods(mods = {}) {
   return {
     money: Math.max(0, Math.round(Number(mods.money) || 0)),
     lives: Math.max(0, Math.round(Number(mods.lives) || 0)),
     discount: Math.min(0.4, Math.max(0, Number(mods.discount) || 0)),
+    qa: !!mods.qa,
   };
+}
+
+export function remnantsFor({ won, wave, kills, lives }) {
+  const sunk = Math.max(0, Math.round(Number(kills) || 0));
+  const w = Math.max(0, Math.round(Number(wave) || 0));
+  const hp = Math.max(0, Math.round(Number(lives) || 0));
+  if (won) return 20 + Math.floor(hp / 2) + Math.floor(sunk / 8);
+  return 10 + Math.max(1, w) * 3 + Math.floor(sunk / 10);
+}
+
+export function blankSave() {
+  return {
+    version: 1,
+    remnants: 0,
+    upgrades: { chest: 0, lights: 0, yard: 0 },
+    runs: 0,
+    last: null,
+  };
+}
+
+function clampRank(id, n) {
+  const max = META_UPGRADES.find(u => u.id === id)?.max || 0;
+  return Math.max(0, Math.min(max, Math.round(Number(n) || 0)));
+}
+
+export function parseSave(raw, legacy = null) {
+  const next = blankSave();
+  const src = raw && typeof raw === 'object' ? raw : null;
+  if (src) {
+    next.remnants = Math.max(0, Math.round(Number(src.remnants) || 0));
+    for (const id of ['chest', 'lights', 'yard']) {
+      const legacyId = id === 'chest' ? 'money' : id === 'lights' ? 'lives' : 'discount';
+      next.upgrades[id] = Math.min(DEMO.rankCap, clampRank(id, src.upgrades?.[id] ?? src.upgrades?.[legacyId]));
+    }
+    next.runs = Math.max(0, Math.round(Number(src.runs) || 0));
+    if (src.last && typeof src.last === 'object') {
+      next.last = {
+        won: !!src.last.won,
+        gain: Math.max(0, Math.round(Number(src.last.gain) || 0)),
+        kills: Math.max(0, Math.round(Number(src.last.kills) || 0)),
+        wave: Math.max(0, Math.round(Number(src.last.wave) || 0)),
+        lives: Math.max(0, Math.round(Number(src.last.lives) || 0)),
+      };
+    }
+    return next;
+  }
+  if (legacy && typeof legacy === 'object') {
+    next.remnants = Math.max(0, Math.round(Number(legacy.remnants) || 0));
+    next.upgrades.chest = Math.min(DEMO.rankCap, clampRank('chest', legacy.upgrades?.money));
+    next.upgrades.lights = Math.min(DEMO.rankCap, clampRank('lights', legacy.upgrades?.lives));
+    next.upgrades.yard = Math.min(DEMO.rankCap, clampRank('yard', legacy.upgrades?.discount));
+    next.runs = Math.max(0, Math.round(Number(legacy.runs) || 0));
+  }
+  return next;
+}
+
+export function loadSave(storage) {
+  let raw = null;
+  let legacy = null;
+  try { raw = JSON.parse(storage.getItem(SAVE_KEY) || 'null'); } catch {}
+  try { legacy = JSON.parse(storage.getItem(LEGACY_META_KEY) || 'null'); } catch {}
+  return parseSave(raw, legacy);
+}
+
+export function persistSave(storage, save) {
+  storage.setItem(SAVE_KEY, JSON.stringify(save));
+}
+
+export function modsFromSave(save) {
+  return {
+    money: save.upgrades.chest * 45,
+    lives: save.upgrades.lights * 2,
+    discount: save.upgrades.yard * 0.07,
+  };
+}
+
+export function demoRankLocked(rank) {
+  return rank >= DEMO.rankCap;
+}
+
+export function demoCta(runs) {
+  return runs >= DEMO.runs;
+}
+
+export function buyMeta(save, id) {
+  const spec = META_UPGRADES.find(u => u.id === id);
+  if (!spec) return false;
+  const rank = save.upgrades[id];
+  if (rank >= spec.max || demoRankLocked(rank)) return false;
+  const cost = META_COST[rank];
+  if (save.remnants < cost) return false;
+  save.remnants -= cost;
+  save.upgrades[id] += 1;
+  return true;
+}
+
+export function applyRunPayout(save, result) {
+  const gain = remnantsFor(result);
+  save.remnants += gain;
+  save.runs += 1;
+  save.last = { ...result, gain };
+  return gain;
 }
 
 export class Defense {
   constructor(index = 0, mods = {}) {
-    this.index = index;
-    this.level = LEVELS[index];
+    const level = LEVELS[index] || LEVELS[0];
+    this.index = LEVELS[index] ? index : 0;
+    this.mods = normalizeMods(mods);
+    this.level = {
+      ...level,
+      waves: this.mods.qa ? 2 : level.waves,
+      money: level.money + (this.mods.qa ? 120 : 0),
+    };
     this.paths = this.level.paths.map(pathData);
     this.state = 'build';
-    this.mods = normalizeMods(mods);
     this.money = this.level.money + this.mods.money;
-    this.maxLives = 20 + this.mods.lives;
+    this.maxLives = 18 + this.mods.lives;
     this.lives = this.maxLives;
     this.wave = 0;
     this.kills = 0;
@@ -313,14 +388,14 @@ export class Defense {
     if (this.state !== 'build' || this.wave >= this.level.waves) return false;
     this.wave += 1;
     this.state = 'wave';
-    const plan = wavePlan(this.index, this.wave);
-    this.queue = plan.map((kind, i) => ({
-      kind,
-      wait: 0.55 + i * (kind === 'boss' ? 1.4 : 0.42),
-    }));
+    const plan = wavePlan(this.index, this.wave, this.mods.qa);
+    let wait = 0.45;
+    this.queue = plan.map(kind => {
+      wait += SPACING[kind] || 0.4;
+      return { kind, wait };
+    });
     this.spawnWait = 0;
     this.events.push({ type: 'wave', wave: this.wave });
-    if (plan.includes('boss')) this.events.push({ type: 'boss' });
     return true;
   }
 
@@ -329,6 +404,7 @@ export class Defense {
     const pathIndex = this.paths.length > 1 ? (this.id % this.paths.length) : 0;
     const path = this.paths[pathIndex];
     const start = onPath(path, 0);
+    const hp = spec.hp * (1 + (this.wave - 1) * 0.06);
     this.enemies.push({
       id: this.id++,
       type: kind,
@@ -337,8 +413,8 @@ export class Defense {
       x: start.x,
       y: start.y,
       angle: start.angle,
-      hp: spec.hp * (1 + this.index * 0.08 + (this.wave - 1) * 0.05),
-      maxHp: spec.hp * (1 + this.index * 0.08 + (this.wave - 1) * 0.05),
+      hp,
+      maxHp: hp,
       speed: spec.speed,
       size: spec.size,
       color: spec.color,
@@ -352,9 +428,9 @@ export class Defense {
 
   hurt(enemy, amount, source) {
     let dmg = amount;
-    if (enemy.armor && source !== 'tesla') dmg *= 0.45;
+    if (enemy.armor && source !== 'tesla' && source !== 'frost') dmg *= 0.5;
     enemy.hp -= dmg;
-    enemy.flash = 0.12;
+    enemy.flash = 0.1;
     if (enemy.hp <= 0) this.sink(enemy);
   }
 
@@ -382,15 +458,16 @@ export class Defense {
 
   fire(tower, dt) {
     tower.cool -= dt;
+    const s = stats(tower);
     const foe = this.target(tower);
     if (foe) tower.angle = Math.atan2(foe.y - tower.y, foe.x - tower.x);
     if (tower.cool > 0 || !foe) return;
-    const s = stats(tower);
     tower.cool = s.rate;
     if (tower.type === 'tesla' || tower.type === 'frost') {
       const chain = [foe];
       if (tower.type === 'tesla') {
-        const rest = this.enemies.filter(e => e !== foe).sort((a, b) => Math.hypot(a.x - foe.x, a.y - foe.y) - Math.hypot(b.x - foe.x, b.y - foe.y));
+        const rest = this.enemies.filter(e => e !== foe)
+          .sort((a, b) => Math.hypot(a.x - foe.x, a.y - foe.y) - Math.hypot(b.x - foe.x, b.y - foe.y));
         for (const e of rest) {
           if (chain.length >= 3) break;
           const last = chain[chain.length - 1];
@@ -422,15 +499,25 @@ export class Defense {
       tx: foe.x,
       ty: foe.y,
       age: 0,
-      duration: tower.type === 'mortar' ? 0.55 : Math.max(0.08, travel / 780),
+      duration: tower.type === 'mortar' ? 0.52 : Math.max(0.08, travel / 780),
       color: s.color,
       damage: s.damage,
       target: foe,
     });
   }
 
+  finish(won) {
+    this.state = won ? 'won' : 'lost';
+    this.events.push({
+      type: 'end',
+      won,
+      kills: this.kills,
+      wave: this.wave,
+      lives: this.lives,
+    });
+  }
+
   step(dt) {
-    if (!['build', 'wave'].includes(this.state)) return;
     if (this.state !== 'wave') return;
 
     this.spawnWait += dt;
@@ -478,21 +565,16 @@ export class Defense {
     }
 
     if (this.lives <= 0) {
-      this.state = 'lost';
-      this.events.push({ type: 'end', won: false, stars: 0 });
+      this.finish(false);
       return;
     }
 
     if (!this.queue.length && !this.enemies.length) {
-      const bonus = 20 + this.wave * 8;
+      const bonus = 18 + this.wave * 8;
       this.money += bonus;
       this.events.push({ type: 'clear', bonus });
-      if (this.wave >= this.level.waves) {
-        this.state = 'won';
-        this.events.push({ type: 'end', won: true, stars: starsFromLives(this.lives, this.maxLives) });
-      } else {
-        this.state = 'build';
-      }
+      if (this.wave >= this.level.waves) this.finish(true);
+      else this.state = 'build';
     }
   }
 }

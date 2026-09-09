@@ -1,134 +1,772 @@
-import {Defense,LEVELS,TYPES,ENEMIES,W,H,stats,wavePlan,onPath,pathData,distance} from './engine.mjs';
-const $=id=>document.getElementById(id),canvas=$('board'),ctx=canvas.getContext('2d'),typeKeys=Object.keys(TYPES);
-const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
-let game=new Defense(),screen='meta',selected=-1,blueprint=null,paused=false,speed=1,clock=0,last=0,uiClock=0,noticeTime=0,effects=[],hover=-1,mapScale=1,mapX=0,mapY=0,viewW=960,viewH=600,runFrom='meta';
-let progress=Array(6).fill(0),sound=false,audio=null;
-try{const data=JSON.parse(localStorage.getItem('pristav-defense-progress')||'null');if(Array.isArray(data))progress=progress.map((_,i)=>Math.max(0,Math.min(3,Number(data[i])||0)));sound=localStorage.getItem('pristav-defense-sound')==='true';}catch{}
-const META_KEY='pristav-defense-meta';
-const META_COST=[5,8,12,16,22];
-const META_UPGRADES=[
-  {id:'money',name:'Zásoba kreditů',desc:'Začni hlídku s větší pokladnou.',max:5,label:n=>n?`Teď +${n*40} kreditů na start`:'Zatím bez bonusu'},
-  {id:'lives',name:'Posílený maják',desc:'Maják vydrží víc zásahů, než zhasne.',max:5,label:n=>n?`Teď +${n*2} k životům majáku`:'Zatím bez bonusu'},
-  {id:'discount',name:'Sleva v arzenálu',desc:'Věže i vylepšení jsou levnější.',max:4,label:n=>n?`Teď −${n*6} % cena věží`:'Zatím bez bonusu'},
-];
-function blankMeta(){return {version:1,remnants:0,upgrades:{money:0,lives:0,discount:0},runs:0,last:null};}
-function clampRank(id,n){const max=META_UPGRADES.find(u=>u.id===id)?.max||0;return Math.max(0,Math.min(max,Math.round(Number(n)||0)));}
-function loadMeta(){
-  const next=blankMeta();
-  try{
-    const raw=JSON.parse(localStorage.getItem(META_KEY)||'null');
-    if(raw&&typeof raw==='object'){
-      next.remnants=Math.max(0,Math.round(Number(raw.remnants)||0));
-      next.upgrades.money=clampRank('money',raw.upgrades?.money);
-      next.upgrades.lives=clampRank('lives',raw.upgrades?.lives);
-      next.upgrades.discount=clampRank('discount',raw.upgrades?.discount);
-      next.runs=Math.max(0,Math.round(Number(raw.runs)||0));
-      next.last=raw.last&&typeof raw.last==='object'?raw.last:null;
-      return next;
-    }
-  }catch{}
-  const stars=progress.reduce((a,b)=>a+b,0);
-  if(stars>0)next.remnants=stars*2;
-  return next;
+import {
+  Defense, LEVELS, TYPES, ENEMIES, W, H, stats, wavePlan, onPath,
+  SAVE_KEY, SOUND_KEY, DEMO, META_UPGRADES, META_COST,
+  loadSave, persistSave, modsFromSave, buyMeta, applyRunPayout,
+  demoRankLocked, demoCta,
+} from './engine.mjs';
+
+const $ = id => document.getElementById(id);
+const canvas = $('board');
+const ctx = canvas.getContext('2d');
+const typeKeys = Object.keys(TYPES);
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const qa = new URLSearchParams(location.search).has('qa');
+const storage = window.localStorage;
+
+const memoryStore = () => {
+  const map = new Map();
+  return {
+    getItem: k => (map.has(k) ? map.get(k) : null),
+    setItem: (k, v) => { map.set(k, String(v)); },
+  };
+};
+
+let save;
+try { save = loadSave(storage); persistSave(storage, save); }
+catch {
+  save = loadSave(memoryStore());
 }
-function persistMeta(){try{localStorage.setItem(META_KEY,JSON.stringify(meta));}catch{}}
-let meta=loadMeta();persistMeta();
-function currentMods(){return {money:meta.upgrades.money*40,lives:meta.upgrades.lives*2,discount:meta.upgrades.discount*.06};}
-function remnantsFor(won,stars){return won?6+stars*2+Math.floor(game.kills/12):2+game.wave+Math.floor(game.kills/18);}
-const money=n=>Math.round(n).toLocaleString('cs-CZ');
-function tone(freq=440,duration=.1,volume=.025,type='sine',end){if(!sound||!audio)return;try{const t=audio.currentTime,o=audio.createOscillator(),g=audio.createGain();o.type=type;o.frequency.setValueAtTime(freq,t);if(end)o.frequency.exponentialRampToValueAtTime(end,t+duration);g.gain.setValueAtTime(volume,t);g.gain.exponentialRampToValueAtTime(.001,t+duration);o.connect(g);g.connect(audio.destination);o.start(t);o.stop(t+duration);o.onended=()=>{o.disconnect();g.disconnect();};}catch{}}
-function readyAudio(){if(!sound)return;try{audio??=new(window.AudioContext||window.webkitAudioContext)();audio.resume().catch(()=>{});}catch{}}
-function syncSound(){$('sound').setAttribute('aria-pressed',String(sound));$('sound').setAttribute('aria-label',sound?'Vypnout zvuk':'Zapnout zvuk');$('sound').textContent=sound?'♫':'♪';}
-$('sound').onclick=()=>{sound=!sound;readyAudio();syncSound();try{localStorage.setItem('pristav-defense-sound',String(sound));}catch{}if(sound)tone(500,.14);};syncSound();
-function circle(c,x,y,r,fill,stroke,width=1){c.beginPath();c.arc(x,y,r,0,Math.PI*2);if(fill){c.fillStyle=fill;c.fill();}if(stroke){c.strokeStyle=stroke;c.lineWidth=width;c.stroke();}}
-function turret(c,x,y,type,angle=-Math.PI/2,level=1,scale=1){const color=TYPES[type].color;c.save();c.translate(x,y);c.scale(scale,scale);c.shadowColor='#0009';c.shadowBlur=6;c.shadowOffsetY=5;circle(c,0,0,22,'#173941','#5c7a78',2);c.shadowBlur=0;c.shadowOffsetY=0;circle(c,0,0,17,'#09252f',color+'88',1.5);c.save();c.rotate(angle);
- if(type==='cannon'){c.fillStyle='#375752';c.fillRect(-10,-11,20,22);c.strokeStyle=color;c.lineWidth=5;c.beginPath();c.moveTo(0,-4);c.lineTo(31,-4);c.moveTo(0,4);c.lineTo(31,4);c.stroke();circle(c,0,0,6,color);}
- if(type==='tesla'){c.rotate(Math.PI/4);c.fillStyle='#403c60';c.fillRect(-10,-10,20,20);c.strokeStyle=color;c.lineWidth=2;c.strokeRect(-10,-10,20,20);circle(c,0,0,5,color);for(let i=0;i<4;i++){c.rotate(Math.PI/2);c.fillStyle=color;c.fillRect(13,-2,6,4);}}
- if(type==='frost'){c.strokeStyle=color;c.lineWidth=2.5;for(let i=0;i<6;i++){c.rotate(Math.PI/3);c.beginPath();c.moveTo(0,0);c.lineTo(15,0);c.moveTo(10,0);c.lineTo(6,-5);c.moveTo(10,0);c.lineTo(6,5);c.stroke();}circle(c,0,0,4,'#d5faff');}
- if(type==='mortar'){circle(c,0,0,12,'#736453',color,2);c.fillStyle='#968267';c.fillRect(0,-8,19,16);circle(c,20,0,8,color);circle(c,20,0,5,'#1e302f');}
- c.restore();for(let i=0;i<level;i++)circle(c,(i-(level-1)/2)*8,28,2.4,color);c.restore();}
-function miniMap(c,index,w,h){const l=LEVELS[index];c.clearRect(0,0,w,h);c.save();c.translate(w*.13,h*.07);c.scale(w*.75/W,h*.84/H);for(const points of l.paths){c.beginPath();points.forEach(([x,y],i)=>i?c.lineTo(x,y):c.moveTo(x,y));c.strokeStyle='#a4d6bd77';c.lineWidth=14;c.lineJoin='round';c.stroke();}for(const [x,y]of l.pads)circle(c,x,y,11,'#c1ebca35');circle(c,930,300,23,'#ffd192');c.restore();}
-function drawCampaign(){const unlocked=progress.findIndex(n=>n===0);$('total-stars').innerHTML=`${progress.reduce((a,b)=>a+b,0)} <span>/ 18</span>`;$('levels').innerHTML=LEVELS.map((l,i)=>{const open=i===0||progress[i-1]>0;return`<button class="level-card ${i===unlocked?'current':''}" data-level="${i}" ${open?'':'disabled'} aria-label="Sektor ${i+1}, ${l.name}, ${open?progress[i]+' ze 3 hvězd':'uzamčeno'}"><canvas aria-hidden="true" width="660" height="212"></canvas><span class="card-number">0${i+1}</span><span class="card-status">${!open?'UZAMČENO':progress[i]?'DOKONČENO':'VSTOUPIT →'}</span><div class="card-info"><div><h3>${l.name}</h3><p>${l.waves} VLN / ${l.paths.length===1?'JEDNA TRASA':'DVĚ TRASY'}</p></div><span class="card-stars">${'★'.repeat(progress[i])}<span class="empty">${'☆'.repeat(3-progress[i])}</span></span></div></button>`;}).join('');document.querySelectorAll('[data-level]').forEach(b=>{miniMap(b.querySelector('canvas').getContext('2d'),Number(b.dataset.level),660,212);b.onclick=()=>startLevel(Number(b.dataset.level),'campaign');});}
-function hideHubs(){$('meta').classList.add('hidden');$('campaign').classList.add('hidden');$('battle').classList.add('hidden');}
-function drawMeta(){
-  $('meta-currency').textContent=money(meta.remnants);
-  $('upgrades').innerHTML=META_UPGRADES.map(u=>{
-    const rank=meta.upgrades[u.id],maxed=rank>=u.max,cost=maxed?null:META_COST[rank],can=cost!=null&&meta.remnants>=cost;
-    return `<article class="upgrade-card"><span class="card-status">${rank} / ${u.max}</span><h3>${u.name}</h3><p>${u.desc}</p><b class="upgrade-effect">${u.label(rank)}</b><button class="primary" data-upgrade="${u.id}" ${can?'':'disabled'}>${maxed?'Maximum':`Koupit · ${cost} zbytků`}</button></article>`;
+
+let game = new Defense(0, { ...modsFromSave(save), qa });
+let screen = 'hq';
+let mapIndex = 0;
+let selected = -1;
+let blueprint = null;
+let paused = false;
+let speed = 1;
+let clock = 0;
+let last = 0;
+let uiClock = 0;
+let noticeTime = 0;
+let effects = [];
+let hover = -1;
+let mapScale = 1;
+let mapX = 0;
+let mapY = 0;
+let viewW = 960;
+let viewH = 600;
+let sound = false;
+let audio = null;
+try { sound = storage.getItem(SOUND_KEY) === 'true'; } catch {}
+
+const fmt = n => Math.round(n).toLocaleString('cs-CZ');
+
+function tone(freq = 440, duration = .1, volume = .025, type = 'sine', end) {
+  if (!sound || !audio) return;
+  try {
+    const t = audio.currentTime;
+    const o = audio.createOscillator();
+    const g = audio.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(freq, t);
+    if (end) o.frequency.exponentialRampToValueAtTime(end, t + duration);
+    g.gain.setValueAtTime(volume, t);
+    g.gain.exponentialRampToValueAtTime(.001, t + duration);
+    o.connect(g);
+    g.connect(audio.destination);
+    o.start(t);
+    o.stop(t + duration);
+    o.onended = () => { o.disconnect(); g.disconnect(); };
+  } catch {}
+}
+
+function readyAudio() {
+  if (!sound) return;
+  try {
+    audio ??= new (window.AudioContext || window.webkitAudioContext)();
+    audio.resume().catch(() => {});
+  } catch {}
+}
+
+function persist() {
+  try { persistSave(storage, save); } catch {}
+}
+
+function syncSound() {
+  $('sound').setAttribute('aria-pressed', String(sound));
+  $('sound').setAttribute('aria-label', sound ? 'Vypnout zvuk' : 'Zapnout zvuk');
+  $('sound').textContent = sound ? '♫' : '♪';
+}
+
+$('sound').onclick = () => {
+  sound = !sound;
+  readyAudio();
+  syncSound();
+  try { storage.setItem(SOUND_KEY, String(sound)); } catch {}
+  if (sound) tone(500, .14);
+};
+syncSound();
+
+function circle(c, x, y, r, fill, stroke, width = 1) {
+  c.beginPath();
+  c.arc(x, y, r, 0, Math.PI * 2);
+  if (fill) { c.fillStyle = fill; c.fill(); }
+  if (stroke) { c.strokeStyle = stroke; c.lineWidth = width; c.stroke(); }
+}
+
+function turret(c, x, y, type, angle = -Math.PI / 2, level = 1, scale = 1) {
+  const color = TYPES[type].color;
+  c.save();
+  c.translate(x, y);
+  c.scale(scale, scale);
+  circle(c, 0, 0, 15, '#071e27', color, 2);
+  if (type === 'cannon') {
+    c.save();
+    c.rotate(angle);
+    c.fillStyle = color;
+    c.fillRect(4, -3.5, 16, 7);
+    c.restore();
+  } else if (type === 'tesla') {
+    c.strokeStyle = color;
+    c.lineWidth = 3;
+    c.lineCap = 'round';
+    c.beginPath();
+    c.moveTo(0, 7);
+    c.lineTo(0, -13);
+    c.stroke();
+    c.beginPath();
+    c.arc(0, -13, 8, Math.PI * 0.18, Math.PI * 0.82);
+    c.stroke();
+  } else if (type === 'frost') {
+    c.beginPath();
+    c.moveTo(0, -14);
+    c.lineTo(10, 0);
+    c.lineTo(0, 14);
+    c.lineTo(-10, 0);
+    c.closePath();
+    c.fillStyle = color;
+    c.fill();
+  } else if (type === 'mortar') {
+    c.save();
+    c.rotate(angle - 0.5);
+    c.fillStyle = color;
+    c.fillRect(2, -3.5, 14, 7);
+    c.restore();
+  }
+  for (let i = 0; i < level; i++) circle(c, (i - (level - 1) / 2) * 7, 22, 2.1, color);
+  c.restore();
+}
+
+function iconSvg(kind) {
+  if (kind === 'coins') {
+    return `<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><circle cx="8.5" cy="16.5" r="4.2" fill="#ffd192" stroke="#071e27" stroke-width="1.2"/><circle cx="15.5" cy="16.5" r="4.2" fill="#ffd192" stroke="#071e27" stroke-width="1.2"/><circle cx="12" cy="10" r="4.2" fill="#ffd192" stroke="#071e27" stroke-width="1.2"/></svg>`;
+  }
+  if (kind === 'lighthouse') {
+    return `<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path d="M12 3.2 19 21 H5 Z" fill="#b8ffd9" stroke="#071e27" stroke-width="1.2" stroke-linejoin="round"/><circle cx="12" cy="8.2" r="2" fill="#ffd192"/></svg>`;
+  }
+  return `<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path d="M12 2.8 20 7.2 v6.2 c0 4-3.4 7.4-8 8.8 C7.4 20.8 4 17.4 4 13.4 V7.2 Z" fill="#b8ffd9" stroke="#071e27" stroke-width="1.2" stroke-linejoin="round"/><circle cx="9.2" cy="10.2" r="1.35" fill="#071e27"/><circle cx="14.8" cy="14.6" r="1.35" fill="#071e27"/><path d="M14.6 9.4 9.4 15.4" stroke="#071e27" stroke-width="1.4" stroke-linecap="round"/></svg>`;
+}
+
+function hideScreens() {
+  $('hq').classList.add('hidden');
+  $('battle').classList.add('hidden');
+  $('result').classList.add('hidden');
+}
+
+function drawHq() {
+  $('hq-remnants').textContent = fmt(save.remnants);
+  $('demo-cta').classList.toggle('hidden', !demoCta(save.runs));
+  if (save.last) {
+    $('last-run').classList.remove('hidden');
+    $('last-run').textContent = `${save.last.won ? 'Výhra' : 'Ztráta'} · +${save.last.gain} zbytků`;
+  } else $('last-run').classList.add('hidden');
+
+  $('upgrades').innerHTML = META_UPGRADES.map(u => {
+    const rank = save.upgrades[u.id];
+    const maxed = rank >= u.max;
+    const locked = !maxed && demoRankLocked(rank);
+    const cost = META_COST[rank];
+    const can = !maxed && !locked && save.remnants >= cost;
+    const label = maxed ? 'Maximum' : locked ? 'Plná hra brzy' : `Koupit · ${cost}`;
+    return `<article class="upgrade-card ${locked ? 'locked' : ''}">
+      <div class="upgrade-icon">${iconSvg(u.icon)}</div>
+      <span class="rank">${rank} / ${u.max}</span>
+      <h3>${u.name}</h3>
+      <p>${u.desc}</p>
+      <b>${u.label(rank)}</b>
+      <button class="primary" data-upgrade="${u.id}" ${can ? '' : 'disabled'}>${label}</button>
+    </article>`;
   }).join('');
-  document.querySelectorAll('[data-upgrade]').forEach(b=>b.onclick=()=>buyUpgrade(b.dataset.upgrade));
-  if(meta.last){$('last-run').classList.remove('hidden');$('last-run').textContent=meta.last.won?`Poslední hlídka: výhra, +${meta.last.gain} zbytků.`:`Poslední hlídka: ztráta, +${meta.last.gain} zbytků.`;}
-  else $('last-run').classList.add('hidden');
+  document.querySelectorAll('[data-upgrade]').forEach(b => {
+    b.onclick = () => {
+      if (!buyMeta(save, b.dataset.upgrade)) return;
+      persist();
+      drawHq();
+      tone(520, .12, .035);
+    };
+  });
+
+  $('maps').innerHTML = LEVELS.map((level, i) => `
+    <button class="map-pick ${i === mapIndex ? 'selected' : ''}" data-map="${i}">
+      <span class="eyebrow">${level.area}</span>
+      <strong>${level.name}</strong>
+      <small>${qa ? 2 : level.waves} vln</small>
+    </button>`).join('');
+  document.querySelectorAll('[data-map]').forEach(b => {
+    b.onclick = () => { mapIndex = Number(b.dataset.map); drawHq(); };
+  });
 }
-function buyUpgrade(id){
-  const u=META_UPGRADES.find(x=>x.id===id);if(!u)return;
-  const rank=meta.upgrades[id];if(rank>=u.max)return;
-  const cost=META_COST[rank];if(meta.remnants<cost)return;
-  meta.remnants-=cost;meta.upgrades[id]+=1;persistMeta();drawMeta();tone(520,.12,.035);
+
+function showHq() {
+  closeModal();
+  screen = 'hq';
+  paused = false;
+  hideScreens();
+  $('hq').classList.remove('hidden');
+  drawHq();
+  window.scrollTo({ top: 0, behavior: 'instant' });
 }
-function showMeta(){closeModal();screen='meta';paused=false;hideHubs();$('meta').classList.remove('hidden');drawMeta();window.scrollTo({top:0,behavior:'instant'});}
-function showCampaign(){closeModal();screen='campaign';paused=false;hideHubs();$('campaign').classList.remove('hidden');drawCampaign();window.scrollTo({top:0,behavior:'instant'});}
-function startLevel(index,from=runFrom){closeModal();runFrom=from;game=new Defense(index,currentMods());screen='battle';selected=-1;blueprint=null;paused=false;speed=1;effects=[];hover=-1;readyAudio();hideHubs();$('battle').classList.remove('hidden');$('sector-label').textContent=from==='meta'?`HLÍDKA / ${game.level.area}`:`SEKTOR 0${index+1} / ${game.level.area}`;$('mission-name').textContent=game.level.name;$('speed').textContent='1×';notice('Postav věže. Pak spusť první vlnu.',4);resize();syncUI();canvas.focus({preventScroll:true});window.scrollTo({top:0,behavior:'instant'});}
-function notice(text,seconds=2.6,danger=false){$('notice').textContent=text;$('notice').className='notice show'+(danger?' danger':'');noticeTime=seconds;}
-function closeModal(){if($('modal').open)$('modal').close();}
-function modal(kicker,title,copy,buttons){$('modal-kicker').textContent=kicker;$('modal-title').textContent=title;$('modal-copy').innerHTML=copy;$('modal-actions').replaceChildren();for(const [text,action,secondary]of buttons){const b=document.createElement('button');b.textContent=text;b.className=secondary?'text-btn':'primary';b.onclick=action;$('modal-actions').append(b);}if(!$('modal').open)$('modal').showModal();}
-function resume(){paused=false;closeModal();readyAudio();canvas.focus({preventScroll:true});syncUI();}
-function pause(){if(screen!=='battle'||['won','lost'].includes(game.state))return;paused=true;modal('MOTORY NA VOLNOBĚH','Chvíle klidu.',`<p>Obrana počká. Tvoje věže drží pozice.</p>`,[['Pokračovat →',resume],['Začít sektor znovu',()=>startLevel(game.index,runFrom),true],['Velitelství',showMeta,true]]);syncUI();}
-$('pause').onclick=pause;$('home').onclick=()=>{if(screen==='battle'&&!['won','lost'].includes(game.state))pause();else showMeta();};
-$('help').onclick=()=>{const wasPaused=paused;if(screen==='battle')paused=true;modal('POLNÍ PŘÍRUČKA','Jak udržet přístav.',`<ol class="help-list"><li><b>Vyber věž a místo.</b> Svítící kruhy na mapě jsou stavební plošiny. Stavět i vylepšovat můžeš také během útoku.</li><li><b>Spusť vlnu.</b> Věže míří a střílejí samy. Za potopené lodě získáš kredity.</li><li><b>Kombinuj obranu.</b> Kryo zpomaluje, Tesla ignoruje pancíř, minomet zasahuje celé skupiny.</li><li><b>Vylepšuj.</b> Kliknutím na postavenou věž otevřeš dvě úrovně vylepšení a prodej za 70 % investice.</li><li><b>Udrž maják a vrať se na velitelství.</b> Každá proplutá loď ubere životy. Po výhře i prohře dostaneš zbytky — trvalé bonusy na další hlídku.</li></ol><p>1–4 věž · šipky místo · Enter stavět<br>U vylepšit · mezerník vlna · P pauza</p>`,[['Rozumím →',()=>{closeModal();if(wasPaused)pause();else{paused=false;if(screen==='battle')canvas.focus({preventScroll:true});}syncUI();}]]);};
-$('modal').addEventListener('cancel',e=>{e.preventDefault();if(screen==='battle'&&!['won','lost'].includes(game.state))resume();else if(screen==='battle')showMeta();else closeModal();});
-function end(won,stars=0){paused=false;blueprint=null;if(won){progress[game.index]=Math.max(progress[game.index],stars);try{localStorage.setItem('pristav-defense-progress',JSON.stringify(progress));}catch{}[440,554,660,880].forEach((f,i)=>setTimeout(()=>tone(f,.4,.06),i*110));}else tone(180,.5,.05,'triangle',55);
- const gain=remnantsFor(won,stars);meta.remnants+=gain;meta.runs+=1;meta.last={won,stars,gain,kills:game.kills,wave:game.wave};persistMeta();
- const final=won&&game.index===5;
- const copy=`${won?`<div class="result-stars">${'★'.repeat(stars)}<span style="opacity:.2">${'★'.repeat(3-stars)}</span></div>`:''}<p>${final?'Celá flotila je na dně. Dokončil jsi všech šest sektorů.':won?'Dobrá práce, veliteli. Zbytky míří na velitelství.':'Zkus více krya u zatáček a Teslu proti obrněncům.'}</p><p>Do velitelství přichází <b>${gain} zbytků</b>.</p><div class="result-stats"><div><b>${game.kills}</b><span>POTOPENO</span></div><div><b>${game.lives}/${game.maxLives}</b><span>MAJÁK</span></div><div><b>${game.wave}/${game.level.waves}</b><span>VLNY</span></div></div>`;
- const buttons=runFrom==='meta'||!won?[['Velitelství →',showMeta],[won?'Znovu na hlídku':'Zkusit znovu →',()=>startLevel(game.index,runFrom),true]]:final?[['Velitelství →',showMeta],['Zopakovat poslední sektor',()=>startLevel(game.index,'campaign'),true]]:[['Velitelství →',showMeta],['Další sektor',()=>startLevel(game.index+1,'campaign'),true],['Zopakovat pro 3 hvězdy',()=>startLevel(game.index,'campaign'),true]];
- modal(won?'SEKTOR ZAJIŠTĚN':'OBRANA PROLOMENA',final?'Maják stále svítí.':won?'Přístav drží.':'Příliv byl silnější.',copy,buttons);syncUI();}
-function makeTowerCards(){$('tower-options').innerHTML=Object.entries(TYPES).map(([type,t],i)=>`<button class="tower-card" data-tower="${type}" style="--accent:${t.color}" aria-label="${t.name}, ${t.cost} kreditů. ${t.desc}"><canvas width="100" height="90" aria-hidden="true"></canvas><span class="tower-cost">${t.cost}</span><strong>${t.name}</strong><small>${t.tag}</small><span class="tower-key">${i+1}</span></button>`).join('');document.querySelectorAll('[data-tower]').forEach(b=>{turret(b.querySelector('canvas').getContext('2d'),46,41,b.dataset.tower,-.55,1,1.25);b.onclick=()=>chooseType(b.dataset.tower);});}
-function chooseType(type){if(paused||!['build','wave'].includes(game.state))return;readyAudio();if(selected>=0&&!game.towerAt(selected)){if(game.build(selected,type)){blueprint=null;events();syncUI();canvas.focus({preventScroll:true});return;}notice('Na tuto věž chybí kredity.',2,true);}blueprint=type;selected=-1;syncUI();canvas.focus({preventScroll:true});}
-function selectPad(i){if(paused||!['build','wave'].includes(game.state))return;readyAudio();if(blueprint&&!game.towerAt(i)){if(game.build(i,blueprint)){selected=i;blueprint=null;events();}else{selected=i;notice('Nejdřív potřebuješ více kreditů.',2,true);}}else{selected=i;blueprint=null;}syncUI();}
-function clearSelection(){selected=-1;blueprint=null;syncUI();}
-$('cancel-selection').onclick=clearSelection;
-$('upgrade').onclick=()=>{if(paused)return;if(game.upgrade(selected)){tone(660,.17,.045);events();syncUI();}else notice('Na vylepšení chybí kredity.',2,true);};
-$('sell').onclick=()=>{if(paused)return;if(game.sell(selected)){tone(290,.12);clearSelection();}};
-$('send-wave').onclick=()=>{if(paused)return;readyAudio();if(!game.towers.length){notice('Nejdřív postav alespoň jednu věž.',2.5,true);return;}if(game.startWave()){events();syncUI();canvas.focus({preventScroll:true});}};
-$('speed').onclick=()=>{speed=speed===1?2:1;$('speed').textContent=speed+'×';$('speed').setAttribute('aria-label',`Rychlost ${speed}×. Přepnout rychlost.`);};
-function syncUI(){if(screen!=='battle')return;$('money').textContent=money(game.money);$('lives').innerHTML=`${game.lives} <small>/ ${game.maxLives}</small>`;$('lives').classList.toggle('low-health',game.lives<Math.ceil(game.maxLives*.4));$('wave').innerHTML=`${game.wave} <small>/ ${game.level.waves}</small>`;$('board-state').textContent=paused?'POZASTAVENO':game.state==='wave'?'FLOTILA NA DOHLED':game.state==='build'?'PŘÍPRAVA OBRANY':game.state==='won'?'SEKTOR ZAJIŠTĚN':'OBRANA PROLOMENA';$('send-wave').disabled=game.state!=='build'||paused;$('send-wave').innerHTML=game.state==='wave'?'Vlna probíhá':game.state==='won'?'Sektor hotový':'Spustit vlnu <span>→</span>';$('next-label').textContent=game.state==='wave'?'ZBÝVÁ ZASTAVIT':'PŘÍŠTÍ VLNA';
- if(game.state==='wave')$('next-enemies').textContent=`${game.enemies.length+game.queue.length} lodí`;
- else if(game.state==='build'){const counts={};for(const t of wavePlan(game.index,game.wave+1))counts[t]=(counts[t]||0)+1;$('next-enemies').textContent=Object.entries(counts).map(([t,n])=>`${n}× ${ENEMIES[t].name.toLowerCase()}`).join(' · ');}else $('next-enemies').textContent='—';
- document.querySelectorAll('[data-tower]').forEach(b=>{const cost=game.towerCost(b.dataset.tower);b.querySelector('.tower-cost').textContent=cost;b.classList.toggle('selected',blueprint===b.dataset.tower);b.classList.toggle('unaffordable',game.money<cost);b.setAttribute('aria-pressed',String(blueprint===b.dataset.tower));});
- const t=game.towerAt(selected),type=t?.type||blueprint,s=type?stats(t||{type,level:1}):null;
- $('cancel-selection').classList.toggle('hidden',selected<0&&!blueprint);$('tower-stats').classList.toggle('hidden',!s);$('upgrade-actions').classList.toggle('hidden',!t);
- if(s){$('selection-label').textContent=t?`POSTAVENÁ VĚŽ / ÚROVEŇ ${t.level} ZE 3`:'PŘIPRAVENO KE STAVBĚ';$('selection-name').textContent=s.name;$('selection-desc').textContent=s.desc;$('tower-stats').innerHTML=`<div><b>${Math.round(s.damage)}</b><span>POŠKOZENÍ</span></div><div><b>${s.range} m</b><span>DOSTŘEL</span></div><div><b>${s.rate.toFixed(1)} s</b><span>INTERVAL</span></div>`;}else{$('selection-label').textContent=selected>=0?'VOLNÉ STAVEBNÍ MÍSTO':'TAKTICKÁ RADA';$('selection-name').textContent=selected>=0?`Plošina ${selected+1}`:'Využij terén.';$('selection-desc').textContent=selected>=0?'Vyber typ věže z arzenálu. Věž se hned postaví.':game.level.tip;}
- if(t){$('upgrade').textContent=t.level>=3?'Maximální úroveň':`Vylepšit na ${t.level+1} · ${game.upgradePrice(t)}`;$('upgrade').disabled=t.level>=3||game.money<game.upgradePrice(t)||paused;$('sell').textContent=`Prodat za ${Math.floor(t.invested*.7)} kreditů`;$('sell').disabled=paused;}
- $('build-hint').textContent=blueprint?`${TYPES[blueprint].name}: klikni na svítící stavební místo.`:'Vyber věž a pak svítící místo na mapě.';
+
+function startRun(index = mapIndex) {
+  closeModal();
+  mapIndex = index;
+  game = new Defense(index, { ...modsFromSave(save), qa });
+  screen = 'battle';
+  selected = -1;
+  blueprint = null;
+  paused = false;
+  speed = 1;
+  effects = [];
+  hover = -1;
+  readyAudio();
+  hideScreens();
+  $('battle').classList.remove('hidden');
+  $('sector-label').textContent = game.level.area;
+  $('mission-name').textContent = game.level.name;
+  $('speed').textContent = '1×';
+  notice('Postav věže. Pak spusť první vlnu.', 3.4);
+  resize();
+  syncUI();
+  canvas.focus({ preventScroll: true });
+  window.scrollTo({ top: 0, behavior: 'instant' });
 }
-function events(){for(const e of game.events){if(e.type==='build'){effects.push({...e,age:0,life:.6});tone(430,.1,.035);}if(e.type==='kill'){effects.push({...e,age:0,life:.6});if(game.kills%3===0)tone(75,.12,.025,'triangle',35);}if(e.type==='blast'){effects.push({...e,age:0,life:.45});tone(58,.18,.04,'triangle',30);}if(e.type==='beam'){effects.push({...e,age:0,life:e.frost?.2:.16});}if(e.type==='leak'){effects.push({...e,age:0,life:.7});notice(`Loď proplula! Maják −${e.harm}`,1.6,true);tone(140,.3,.05,'sawtooth',75);}if(e.type==='wave'){notice(`Vlna ${e.wave} / ${game.level.waves} připlouvá`,2.2);tone(330,.2,.04);}if(e.type==='clear'){notice(`Čistá voda. Bonus +${e.bonus} kreditů.`,3);tone(660,.25,.04);}if(e.type==='boss'){notice('DREADNOUGHT NA DOHLED',3,true);tone(100,.7,.04,'sawtooth',60);}if(e.type==='end')end(e.won,e.stars);}game.events.length=0;}
-function resize(){if(screen!=='battle')return;const r=canvas.getBoundingClientRect();if(!r.width||!r.height)return;viewW=r.width;viewH=r.height;const dpr=Math.min(devicePixelRatio||1,2);canvas.width=Math.round(viewW*dpr);canvas.height=Math.round(viewH*dpr);mapScale=Math.min(viewW/W,viewH/H);mapX=(viewW-W*mapScale)/2;mapY=(viewH-H*mapScale)/2;ctx.setTransform(dpr,0,0,dpr,0,0);}
-new ResizeObserver(resize).observe(canvas);
-function point(e){const r=canvas.getBoundingClientRect();return{x:(e.clientX-r.left-mapX)/mapScale,y:(e.clientY-r.top-mapY)/mapScale};}
-function nearest(p,threshold=43){let best=-1,d=Infinity;game.level.pads.forEach(([x,y],i)=>{const n=Math.hypot(x-p.x,y-p.y);if(n<d&&n<threshold){d=n;best=i;}});return best;}
-canvas.addEventListener('pointermove',e=>{hover=nearest(point(e));});canvas.addEventListener('pointerleave',()=>hover=-1);canvas.addEventListener('pointerup',e=>{if(screen!=='battle'||paused)return;const i=nearest(point(e),e.pointerType==='touch'?Math.max(43,22/mapScale):43);if(i>=0)selectPad(i);else clearSelection();canvas.focus({preventScroll:true});});
-window.addEventListener('keydown',e=>{if(screen!=='battle'||e.ctrlKey||e.metaKey||e.altKey||e.isComposing)return;const key=e.key||e.code;if($('modal').open){if((key==='p'||key==='P')&&!e.repeat&&paused){e.preventDefault();resume();}return;}if(e.target.closest?.('input,textarea,select'))return;
- if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(key)){e.preventDefault();const [dx,dy]=key==='ArrowLeft'?[-1,0]:key==='ArrowRight'?[1,0]:key==='ArrowUp'?[0,-1]:[0,1];if(selected<0)selected=0;else{const [x,y]=game.level.pads[selected];const choices=game.level.pads.map(([xx,yy],i)=>({i,forward:(xx-x)*dx+(yy-y)*dy,side:Math.abs((xx-x)*dy-(yy-y)*dx),d:Math.hypot(xx-x,yy-y)})).filter(v=>v.forward>5).sort((a,b)=>(a.d+a.side*1.5)-(b.d+b.side*1.5));if(choices.length)selected=choices[0].i;}canvas.focus({preventScroll:true});syncUI();return;}
- if(e.repeat)return;
- if(['1','2','3','4'].includes(key)){e.preventDefault();chooseType(typeKeys[Number(key)-1]);}
- else if(key==='Enter'&&e.target===canvas&&selected>=0){e.preventDefault();selectPad(selected);}
- else if((key===' '||key==='Space')&&e.target===canvas){e.preventDefault();$('send-wave').click();}
- else if(key.toLowerCase()==='u'&&selected>=0){e.preventDefault();$('upgrade').click();}
- else if(key.toLowerCase()==='p'){e.preventDefault();pause();}
- else if(key==='Escape'){e.preventDefault();if(blueprint||selected>=0)clearSelection();else pause();}
+
+function showResult(won, gain) {
+  screen = 'result';
+  paused = false;
+  hideScreens();
+  $('result').classList.remove('hidden');
+  $('result-kicker').textContent = won ? 'UDRŽENO' : 'PROLOMENO';
+  $('result-title').textContent = won ? 'Maják stále svítí.' : 'Maják zhasl.';
+  $('result-remnants').textContent = `+${gain}`;
+  $('result-kills').textContent = fmt(game.kills);
+  $('result-wave').textContent = `${game.wave} / ${game.level.waves}`;
+  $('result-lives').textContent = `${game.lives} / ${game.maxLives}`;
+  $('result-note').classList.toggle('hidden', !demoCta(save.runs));
+}
+
+function notice(text, seconds = 2.4, danger = false) {
+  $('notice').textContent = text;
+  $('notice').className = 'notice show' + (danger ? ' danger' : '');
+  noticeTime = seconds;
+}
+
+function closeModal() {
+  if ($('modal').open) $('modal').close();
+}
+
+function modal(kicker, title, copy, buttons) {
+  $('modal-kicker').textContent = kicker;
+  $('modal-title').textContent = title;
+  $('modal-copy').innerHTML = copy;
+  $('modal-actions').replaceChildren();
+  for (const [text, action, secondary] of buttons) {
+    const b = document.createElement('button');
+    b.textContent = text;
+    b.className = secondary ? 'text-btn' : 'primary';
+    b.onclick = action;
+    $('modal-actions').append(b);
+  }
+  if (!$('modal').open) $('modal').showModal();
+}
+
+function resume() {
+  paused = false;
+  closeModal();
+  readyAudio();
+  canvas.focus({ preventScroll: true });
+  syncUI();
+}
+
+function pause() {
+  if (screen !== 'battle' || ['won', 'lost'].includes(game.state)) return;
+  paused = true;
+  modal('PAUZA', 'Chvíle klidu.', `<p>Obrana počká. Věže drží pozice.</p>`, [
+    ['Pokračovat →', resume],
+    ['Začít znovu', () => startRun(game.index), true],
+    ['Velitelství', showHq, true],
+  ]);
+  syncUI();
+}
+
+$('pause').onclick = pause;
+$('home').onclick = () => {
+  if (screen === 'battle' && !['won', 'lost'].includes(game.state)) pause();
+  else showHq();
+};
+$('start-run').onclick = () => startRun(mapIndex);
+$('to-hq').onclick = showHq;
+
+$('help').onclick = () => {
+  const wasPaused = paused;
+  if (screen === 'battle') paused = true;
+  modal('POLNÍ PŘÍRUČKA', 'Jak udržet přístav.', `<ol class="help-list">
+    <li><b>Stavěj na plošinách.</b> Čtyři věže: Kanón, Tesla, Kryo, Minomet.</li>
+    <li><b>Kredity</b> kupují věže v tomhle běhu. <b>Zbytky</b> zůstanou na velitelství.</li>
+    <li><b>Vyhraj nebo padni.</b> Utrať zbytky a vyraž znovu.</li>
+    <li>1–4 věž · šipky místo · Enter stavět · U vylepšit · mezerník vlna · P pauza</li>
+  </ol>`, [['Rozumím →', () => {
+    closeModal();
+    if (wasPaused) pause();
+    else {
+      paused = false;
+      if (screen === 'battle') canvas.focus({ preventScroll: true });
+    }
+    syncUI();
+  }]]);
+};
+
+$('modal').addEventListener('cancel', e => {
+  e.preventDefault();
+  if (screen === 'battle' && !['won', 'lost'].includes(game.state)) resume();
+  else closeModal();
 });
-document.addEventListener('visibilitychange',()=>{if(document.hidden&&screen==='battle'&&!paused)pause();});window.addEventListener('blur',()=>{if(screen==='battle'&&game.state==='wave'&&!paused)pause();});
-function draw(){ctx.clearRect(0,0,viewW,viewH);ctx.save();ctx.translate(mapX,mapY);ctx.scale(mapScale,mapScale);
- for(const points of game.level.paths){ctx.beginPath();points.forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.lineJoin='round';ctx.lineCap='round';ctx.strokeStyle='#051923c4';ctx.lineWidth=36;ctx.stroke();ctx.strokeStyle='#d0b99435';ctx.lineWidth=30;ctx.stroke();ctx.strokeStyle='#dfc79f65';ctx.lineWidth=1.5;ctx.setLineDash([5,10]);ctx.lineDashOffset=reduced?0:-clock*9;ctx.stroke();ctx.setLineDash([]);}
- for(const path of game.paths){for(let d=90;d<path.length-30;d+=160){const p=onPath(path,d);ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.angle);ctx.beginPath();ctx.moveTo(-5,-5);ctx.lineTo(2,0);ctx.lineTo(-5,5);ctx.strokeStyle='#e9d8b680';ctx.lineWidth=1.5;ctx.stroke();ctx.restore();}}
- const active=selected>=0?selected:hover,t=game.towerAt(active),type=t?.type||blueprint;
- if(active>=0&&type){const [x,y]=game.level.pads[active],s=stats(t||{type,level:1});circle(ctx,x,y,s.range,s.color+'0c',s.color+'57',1);}
- game.level.pads.forEach(([x,y],i)=>{const tower=game.towerAt(i),isSelected=i===selected||i===hover;circle(ctx,x,y,27,'#061f2be8',isSelected?'#d4ffe4':tower?'#7eab9266':'#a2d2b570',isSelected?2:1);if(!tower){ctx.strokeStyle=isSelected?'#b8ffd9':'#99ccb966';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(x-7,y);ctx.lineTo(x+7,y);ctx.moveTo(x,y-7);ctx.lineTo(x,y+7);ctx.stroke();if(isSelected){ctx.fillStyle='#bedbca';ctx.font='12px "DM Sans",sans-serif';ctx.textAlign='center';ctx.fillText(String(i+1),x,y+43);}}});
- const baseX=931,baseY=300;circle(ctx,baseX,baseY,40,'#ffd1920c','#ffd19244',1);circle(ctx,baseX,baseY,29,'#20383a','#ffd192',2);ctx.beginPath();ctx.arc(baseX,baseY,35,-Math.PI/2,-Math.PI/2+Math.PI*2*game.lives/game.maxLives);ctx.strokeStyle=game.lives<Math.ceil(game.maxLives*.4)?'#ff8094':'#ffd192';ctx.lineWidth=3;ctx.stroke();ctx.fillStyle='#ffd192';ctx.font='25px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('Ⅱ',baseX,baseY);ctx.textBaseline='alphabetic';ctx.font='10px "DM Sans",sans-serif';ctx.fillText('MAJÁK',baseX,baseY+53);
- for(const t of game.towers){turret(ctx,t.x,t.y,t.type,t.angle,t.level);if(t.cool>stats(t).rate-.075){circle(ctx,t.x+Math.cos(t.angle)*28,t.y+Math.sin(t.angle)*28,7,TYPES[t.type].color+'b0');}}
- for(const e of game.enemies){ctx.save();ctx.translate(e.x,e.y);ctx.rotate(e.angle);if(!reduced){ctx.beginPath();ctx.moveTo(-e.size,e.size*.6);ctx.lineTo(-e.size-18,e.size);ctx.moveTo(-e.size,-e.size*.6);ctx.lineTo(-e.size-18,-e.size);ctx.strokeStyle='#d0eee51f';ctx.lineWidth=2;ctx.stroke();}ctx.shadowColor='#000a';ctx.shadowBlur=5;ctx.shadowOffsetY=4;ctx.beginPath();ctx.moveTo(e.size*1.6,0);ctx.lineTo(e.size*.6,-e.size*.7);ctx.lineTo(-e.size*1.1,-e.size*.7);ctx.lineTo(-e.size*.8,0);ctx.lineTo(-e.size*1.1,e.size*.7);ctx.lineTo(e.size*.6,e.size*.7);ctx.closePath();ctx.fillStyle=e.flash>0?'#fff0df':e.color;ctx.fill();ctx.shadowBlur=0;ctx.shadowOffsetY=0;ctx.strokeStyle=e.armor?'#ffd6e5':'#ffffff55';ctx.lineWidth=e.armor?2:1;ctx.stroke();ctx.fillStyle='#22323b';ctx.fillRect(-e.size*.6,-e.size*.4,e.size,e.size*.8);ctx.fillStyle=e.color;ctx.fillRect(-e.size*.25,-e.size*.15,e.size*.65,e.size*.3);ctx.restore();if(e.slow>0){circle(ctx,e.x,e.y,e.size+8,null,'#80dfff88',2);}if(e.hp<e.maxHp||e.type==='boss'){const w=e.type==='boss'?64:30;ctx.fillStyle='#091e27';ctx.fillRect(e.x-w/2,e.y-e.size-14,w,4);ctx.fillStyle=e.type==='boss'?'#ff8094':e.slow>0?'#80dfff':'#dcdca0';ctx.fillRect(e.x-w/2,e.y-e.size-14,w*Math.max(0,e.hp/e.maxHp),4);}if(e.type==='boss'){ctx.font='bold 10px "DM Sans",sans-serif';ctx.textAlign='center';ctx.fillStyle='#ffb4c1';ctx.fillText('DREADNOUGHT',e.x,e.y-49);}}
- for(const p of game.projectiles){const q=Math.min(1,p.age/p.duration),x=p.ox+(p.tx-p.ox)*q,y=p.oy+(p.ty-p.oy)*q-(p.type==='mortar'?Math.sin(q*Math.PI)*65:0);ctx.beginPath();ctx.moveTo(x-(p.tx-p.ox)*.035,y-(p.ty-p.oy)*.035);ctx.lineTo(x,y);ctx.strokeStyle=p.color;ctx.lineWidth=p.type==='mortar'?4:2;ctx.stroke();circle(ctx,x,y,p.type==='mortar'?4:2.5,'#fff0d2');if(p.type==='mortar')circle(ctx,p.tx,p.ty,12,null,'#ffd19260',1);}
- for(const e of effects){const q=e.age/e.life;ctx.globalAlpha=1-q;if(e.type==='beam'){ctx.beginPath();ctx.moveTo(e.x,e.y);const dx=e.tx-e.x,dy=e.ty-e.y,n=Math.hypot(dx,dy)||1;for(let i=1;i<6;i++){const wobble=e.frost?0:Math.sin(i*6.7+e.age*70)*9;ctx.lineTo(e.x+dx*i/6-dy/n*wobble,e.y+dy*i/6+dx/n*wobble);}ctx.lineTo(e.tx,e.ty);ctx.strokeStyle=e.color;ctx.lineWidth=e.frost?2:3;ctx.stroke();circle(ctx,e.tx,e.ty,8,null,e.color,2);}else if(e.type==='blast'){circle(ctx,e.x,e.y,65*q,e.color+'18',e.color,2);circle(ctx,e.x,e.y,18*(1-q),'#fff3dabb');}else if(e.type==='build'){circle(ctx,e.x,e.y,24+q*25,null,e.color,2);}else if(e.type==='leak'){circle(ctx,e.x,e.y,15+q*65,null,'#ff8094',3);}else if(e.type==='kill'){for(let i=0;i<7;i++){const a=i*2.4;circle(ctx,e.x+Math.cos(a)*q*35,e.y+Math.sin(a)*q*35,2.8*(1-q),e.color);}ctx.fillStyle='#b8ffd9';ctx.font='bold 12px "DM Sans",sans-serif';ctx.textAlign='center';ctx.fillText('+'+e.bounty,e.x,e.y-14-q*25);}}ctx.globalAlpha=1;ctx.restore();}
-function frame(ms){const dt=Math.min((ms-last)/1000||0,.05);last=ms;clock+=dt;if(screen==='battle'){if(!paused){for(let i=0;i<speed;i++){game.step(dt);events();if(['won','lost'].includes(game.state))break;}for(const e of effects)e.age+=dt;effects=effects.filter(e=>e.age<e.life).slice(-180);noticeTime-=dt;if(noticeTime<=0)$('notice').classList.remove('show');}uiClock+=dt;if(uiClock>.15){syncUI();uiClock=0;}draw();}requestAnimationFrame(frame);}
-makeTowerCards();drawMeta();$('start-run').onclick=()=>startLevel(0,'meta');$('show-campaign').onclick=showCampaign;$('back-to-meta').onclick=showMeta;requestAnimationFrame(frame);
+
+function endRun(won) {
+  const gain = applyRunPayout(save, {
+    won,
+    wave: game.wave,
+    kills: game.kills,
+    lives: game.lives,
+  });
+  persist();
+  if (won) [440, 554, 660, 880].forEach((f, i) => setTimeout(() => tone(f, .4, .06), i * 110));
+  else tone(180, .5, .05, 'triangle', 55);
+  showResult(won, gain);
+}
+
+function makeTowerCards() {
+  $('tower-options').innerHTML = Object.entries(TYPES).map(([type, t], i) => `
+    <button class="tower-card" data-tower="${type}" style="--accent:${t.color}" aria-label="${t.name}, ${t.tag}">
+      <canvas width="100" height="90" aria-hidden="true"></canvas>
+      <span class="tower-cost"></span>
+      <strong>${t.name}</strong>
+      <small>${t.tag}</small>
+      <span class="tower-key">${i + 1}</span>
+    </button>`).join('');
+  document.querySelectorAll('[data-tower]').forEach(b => {
+    turret(b.querySelector('canvas').getContext('2d'), 46, 41, b.dataset.tower, -.55, 1, 1.2);
+    b.onclick = () => chooseType(b.dataset.tower);
+  });
+}
+
+function chooseType(type) {
+  if (paused || !['build', 'wave'].includes(game.state)) return;
+  readyAudio();
+  if (selected >= 0 && !game.towerAt(selected)) {
+    if (game.build(selected, type)) {
+      blueprint = null;
+      events();
+      syncUI();
+      canvas.focus({ preventScroll: true });
+      return;
+    }
+    notice('Na tuto věž chybí kredity.', 2, true);
+  }
+  blueprint = type;
+  selected = -1;
+  syncUI();
+  canvas.focus({ preventScroll: true });
+}
+
+function selectPad(i) {
+  if (paused || !['build', 'wave'].includes(game.state)) return;
+  readyAudio();
+  if (blueprint && !game.towerAt(i)) {
+    if (game.build(i, blueprint)) {
+      selected = i;
+      blueprint = null;
+      events();
+    } else {
+      selected = i;
+      notice('Nejdřív potřebuješ více kreditů.', 2, true);
+    }
+  } else {
+    selected = i;
+    blueprint = null;
+  }
+  syncUI();
+}
+
+function clearSelection() {
+  selected = -1;
+  blueprint = null;
+  syncUI();
+}
+
+$('cancel-selection').onclick = clearSelection;
+$('upgrade').onclick = () => {
+  if (paused) return;
+  if (game.upgrade(selected)) { tone(660, .17, .045); events(); syncUI(); }
+  else notice('Na vylepšení chybí kredity.', 2, true);
+};
+$('sell').onclick = () => {
+  if (paused) return;
+  if (game.sell(selected)) { tone(290, .12); clearSelection(); }
+};
+$('send-wave').onclick = () => {
+  if (paused) return;
+  readyAudio();
+  if (!game.towers.length) { notice('Nejdřív postav alespoň jednu věž.', 2.2, true); return; }
+  if (game.startWave()) { events(); syncUI(); canvas.focus({ preventScroll: true }); }
+};
+$('speed').onclick = () => {
+  speed = speed === 1 ? 2 : 1;
+  $('speed').textContent = speed + '×';
+};
+
+function waveText(plan) {
+  const counts = {};
+  for (const t of plan) counts[t] = (counts[t] || 0) + 1;
+  return Object.entries(counts).map(([t, n]) => `${n}× ${ENEMIES[t].name}`).join(' · ');
+}
+
+function syncUI() {
+  if (screen !== 'battle') return;
+  $('money').textContent = fmt(game.money);
+  $('lives').textContent = game.lives;
+  $('lives-wrap').classList.toggle('low-health', game.lives < Math.ceil(game.maxLives * .4));
+  $('wave').textContent = `${game.wave}/${game.level.waves}`;
+  $('wave-fill').style.width = `${Math.min(1, game.wave / game.level.waves) * 100}%`;
+  $('board-state').textContent = paused ? 'PAUZA' : game.state === 'wave' ? 'FLOTILA NA DOHLED' : game.state === 'build' ? 'PŘÍPRAVA' : game.state === 'won' ? 'UDRŽENO' : 'PROLOMENO';
+  $('send-wave').disabled = game.state !== 'build' || paused;
+  $('send-wave').innerHTML = game.state === 'wave' ? 'Vlna probíhá' : game.state === 'won' ? 'Hotovo' : 'Spustit vlnu <span>→</span>';
+  $('next-label').textContent = game.state === 'wave' ? 'ZBÝVÁ ZASTAVIT' : 'PŘÍŠTÍ VLNA';
+  if (game.state === 'wave') $('next-enemies').textContent = `${game.enemies.length + game.queue.length} lodí`;
+  else if (game.state === 'build') $('next-enemies').textContent = waveText(wavePlan(game.index, game.wave + 1, qa));
+  else $('next-enemies').textContent = '—';
+
+  document.querySelectorAll('[data-tower]').forEach(b => {
+    const cost = game.towerCost(b.dataset.tower);
+    b.querySelector('.tower-cost').textContent = cost;
+    b.classList.toggle('selected', blueprint === b.dataset.tower);
+    b.classList.toggle('unaffordable', game.money < cost);
+    b.setAttribute('aria-pressed', String(blueprint === b.dataset.tower));
+  });
+
+  const t = game.towerAt(selected);
+  const type = t?.type || blueprint;
+  const s = type ? stats(t || { type, level: 1 }) : null;
+  $('cancel-selection').classList.toggle('hidden', selected < 0 && !blueprint);
+  $('tower-stats').classList.toggle('hidden', !s);
+  $('upgrade-actions').classList.toggle('hidden', !t);
+  if (s) {
+    $('selection-label').textContent = t ? `VĚŽ / ${t.level} ZE 3` : 'PŘIPRAVENO';
+    $('selection-name').textContent = `${s.name} · ${s.tag}`;
+    $('selection-desc').textContent = s.desc;
+    const mid = `<div><b>${Math.round(s.damage)}</b><span>POŠKOZENÍ</span></div>`;
+    $('tower-stats').innerHTML = `${mid}<div><b>${s.range} m</b><span>DOSTŘEL</span></div><div><b>${s.rate.toFixed(1)} s</b><span>INTERVAL</span></div>`;
+  } else {
+    $('selection-label').textContent = selected >= 0 ? 'PLOŠINA' : 'RADA';
+    $('selection-name').textContent = selected >= 0 ? `Plošina ${selected + 1}` : 'Zatáčky.';
+    $('selection-desc').textContent = selected >= 0 ? 'Vyber typ věže.' : game.level.tip;
+  }
+  if (t) {
+    $('upgrade').textContent = t.level >= 3 ? 'Maximum' : `Vylepšit · ${game.upgradePrice(t)}`;
+    $('upgrade').disabled = t.level >= 3 || game.money < game.upgradePrice(t) || paused;
+    $('sell').textContent = `Prodat · ${Math.floor(t.invested * .7)} kreditů`;
+    $('sell').disabled = paused;
+  }
+  $('build-hint').textContent = blueprint ? `${TYPES[blueprint].name}: klikni na svítící místo.` : 'Vyber věž a pak svítící místo.';
+}
+
+function events() {
+  for (const e of game.events) {
+    if (e.type === 'build') { effects.push({ ...e, age: 0, life: .55 }); tone(430, .1, .035); }
+    if (e.type === 'kill') { effects.push({ ...e, age: 0, life: .55 }); if (game.kills % 3 === 0) tone(75, .12, .025, 'triangle', 35); }
+    if (e.type === 'blast') { effects.push({ ...e, age: 0, life: .4 }); tone(58, .18, .04, 'triangle', 30); }
+    if (e.type === 'beam' || e.type === 'aura') effects.push({ ...e, age: 0, life: e.frost ? .2 : .18 });
+    if (e.type === 'leak') { effects.push({ ...e, age: 0, life: .65 }); notice(`Loď proplula! Maják −${e.harm}`, 1.5, true); tone(140, .3, .05, 'sawtooth', 75); }
+    if (e.type === 'wave') { notice(`Vlna ${e.wave} / ${game.level.waves} připlouvá`, 2); tone(330, .2, .04); }
+    if (e.type === 'clear') { notice(`Čistá voda. Bonus +${e.bonus} kreditů.`, 2.4); tone(660, .25, .04); }
+    if (e.type === 'end') endRun(e.won);
+  }
+  game.events.length = 0;
+}
+
+function resize() {
+  if (screen !== 'battle') return;
+  const r = canvas.getBoundingClientRect();
+  if (!r.width || !r.height) return;
+  viewW = r.width;
+  viewH = r.height;
+  const dpr = Math.min(devicePixelRatio || 1, 2);
+  canvas.width = Math.round(viewW * dpr);
+  canvas.height = Math.round(viewH * dpr);
+  mapScale = Math.min(viewW / W, viewH / H);
+  mapX = (viewW - W * mapScale) / 2;
+  mapY = (viewH - H * mapScale) / 2;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+new ResizeObserver(resize).observe(canvas);
+
+function point(e) {
+  const r = canvas.getBoundingClientRect();
+  return { x: (e.clientX - r.left - mapX) / mapScale, y: (e.clientY - r.top - mapY) / mapScale };
+}
+
+function nearest(p, threshold = 43) {
+  let best = -1;
+  let d = Infinity;
+  game.level.pads.forEach(([x, y], i) => {
+    const n = Math.hypot(x - p.x, y - p.y);
+    if (n < d && n < threshold) { d = n; best = i; }
+  });
+  return best;
+}
+
+canvas.addEventListener('pointermove', e => { hover = nearest(point(e)); });
+canvas.addEventListener('pointerleave', () => { hover = -1; });
+canvas.addEventListener('pointerup', e => {
+  if (screen !== 'battle' || paused) return;
+  const i = nearest(point(e), e.pointerType === 'touch' ? Math.max(43, 22 / mapScale) : 43);
+  if (i >= 0) selectPad(i);
+  else clearSelection();
+  canvas.focus({ preventScroll: true });
+});
+
+window.addEventListener('keydown', e => {
+  if (screen !== 'battle' || e.ctrlKey || e.metaKey || e.altKey || e.isComposing) return;
+  const key = e.key || e.code;
+  if ($('modal').open) {
+    if ((key === 'p' || key === 'P') && !e.repeat && paused) { e.preventDefault(); resume(); }
+    return;
+  }
+  if (e.target.closest?.('input,textarea,select')) return;
+  if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(key)) {
+    e.preventDefault();
+    const [dx, dy] = key === 'ArrowLeft' ? [-1, 0] : key === 'ArrowRight' ? [1, 0] : key === 'ArrowUp' ? [0, -1] : [0, 1];
+    if (selected < 0) selected = 0;
+    else {
+      const [x, y] = game.level.pads[selected];
+      const choices = game.level.pads.map(([xx, yy], i) => ({
+        i,
+        forward: (xx - x) * dx + (yy - y) * dy,
+        side: Math.abs((xx - x) * dy - (yy - y) * dx),
+        d: Math.hypot(xx - x, yy - y),
+      })).filter(v => v.forward > 5).sort((a, b) => (a.d + a.side * 1.5) - (b.d + b.side * 1.5));
+      if (choices.length) selected = choices[0].i;
+    }
+    canvas.focus({ preventScroll: true });
+    syncUI();
+    return;
+  }
+  if (e.repeat) return;
+  if (['1', '2', '3', '4'].includes(key)) { e.preventDefault(); chooseType(typeKeys[Number(key) - 1]); }
+  else if (key === 'Enter' && e.target === canvas && selected >= 0) { e.preventDefault(); selectPad(selected); }
+  else if ((key === ' ' || key === 'Space') && e.target === canvas) { e.preventDefault(); $('send-wave').click(); }
+  else if (key.toLowerCase() === 'u' && selected >= 0) { e.preventDefault(); $('upgrade').click(); }
+  else if (key.toLowerCase() === 'p') { e.preventDefault(); pause(); }
+  else if (key === 'Escape') {
+    e.preventDefault();
+    if (blueprint || selected >= 0) clearSelection();
+    else pause();
+  }
+});
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && screen === 'battle' && !paused) pause();
+});
+window.addEventListener('blur', () => {
+  if (screen === 'battle' && game.state === 'wave' && !paused) pause();
+});
+
+function drawShip(e) {
+  ctx.save();
+  ctx.translate(e.x, e.y);
+  ctx.rotate(e.angle);
+  ctx.beginPath();
+  if (e.type === 'tank') {
+    ctx.moveTo(e.size * 1.3, 0);
+    ctx.lineTo(e.size * .4, -e.size);
+    ctx.lineTo(-e.size, -e.size * .7);
+    ctx.lineTo(-e.size, e.size * .7);
+    ctx.lineTo(e.size * .4, e.size);
+  } else if (e.type === 'fast') {
+    ctx.moveTo(e.size * 1.8, 0);
+    ctx.lineTo(-e.size, -e.size * .55);
+    ctx.lineTo(-e.size * .6, 0);
+    ctx.lineTo(-e.size, e.size * .55);
+  } else {
+    ctx.moveTo(e.size * 1.4, 0);
+    ctx.lineTo(-e.size, -e.size * .7);
+    ctx.lineTo(-e.size * .7, 0);
+    ctx.lineTo(-e.size, e.size * .7);
+  }
+  ctx.closePath();
+  ctx.fillStyle = e.flash > 0 ? '#fff0df' : e.color;
+  ctx.fill();
+  ctx.strokeStyle = e.armor ? '#ffd6e5' : '#ffffff40';
+  ctx.lineWidth = e.armor ? 2 : 1;
+  ctx.stroke();
+  ctx.restore();
+}
+
+function draw() {
+  ctx.clearRect(0, 0, viewW, viewH);
+  ctx.save();
+  ctx.translate(mapX, mapY);
+  ctx.scale(mapScale, mapScale);
+
+  for (const points of game.level.paths) {
+    ctx.beginPath();
+    points.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y));
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = '#05171d';
+    ctx.lineWidth = 36;
+    ctx.stroke();
+    ctx.strokeStyle = '#ffd19255';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 10]);
+    ctx.lineDashOffset = reduced ? 0 : -clock * 8;
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  const active = selected >= 0 ? selected : hover;
+  const t = game.towerAt(active);
+  const type = t?.type || blueprint;
+  if (active >= 0 && type) {
+    const [x, y] = game.level.pads[active];
+    const s = stats(t || { type, level: 1 });
+    circle(ctx, x, y, s.range, s.color + '10', s.color + '55', 1);
+  }
+
+  game.level.pads.forEach(([x, y], i) => {
+    const tower = game.towerAt(i);
+    const isSelected = i === selected || i === hover;
+    circle(ctx, x, y, 24, '#071e27', isSelected ? '#b8ffd9' : tower ? '#7eab9266' : '#a2d2b570', isSelected ? 2 : 1);
+    if (!tower) {
+      ctx.strokeStyle = isSelected ? '#b8ffd9' : '#99ccb966';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(x - 6, y);
+      ctx.lineTo(x + 6, y);
+      ctx.moveTo(x, y - 6);
+      ctx.lineTo(x, y + 6);
+      ctx.stroke();
+    }
+  });
+
+  const baseX = 931;
+  const baseY = 300;
+  ctx.beginPath();
+  ctx.moveTo(baseX, baseY - 22);
+  ctx.lineTo(baseX + 16, baseY + 20);
+  ctx.lineTo(baseX - 16, baseY + 20);
+  ctx.closePath();
+  ctx.fillStyle = '#b8ffd9';
+  ctx.fill();
+  ctx.strokeStyle = '#071e27';
+  ctx.lineWidth = 1.6;
+  ctx.stroke();
+  circle(ctx, baseX, baseY - 8, 4.2, game.lives < Math.ceil(game.maxLives * .4) ? '#ff8094' : '#ffd192');
+
+  for (const tw of game.towers) {
+    turret(ctx, tw.x, tw.y, tw.type, tw.angle, tw.level);
+    if (tw.cool > stats(tw).rate - .07) {
+      circle(ctx, tw.x + Math.cos(tw.angle) * 22, tw.y + Math.sin(tw.angle) * 22, 4, TYPES[tw.type].color);
+    }
+  }
+
+  for (const e of game.enemies) {
+    drawShip(e);
+    if (e.slow > 0) circle(ctx, e.x, e.y, e.size + 7, null, '#e2eee888', 2);
+    if (e.hp < e.maxHp || e.type === 'tank') {
+      const w = e.type === 'tank' ? 36 : 26;
+      ctx.fillStyle = '#071e27';
+      ctx.fillRect(e.x - w / 2, e.y - e.size - 12, w, 3);
+      ctx.fillStyle = e.slow > 0 ? '#e2eee8' : e.type === 'tank' ? '#ff8094' : '#ffd192';
+      ctx.fillRect(e.x - w / 2, e.y - e.size - 12, w * Math.max(0, e.hp / e.maxHp), 3);
+    }
+  }
+
+  for (const p of game.projectiles) {
+    const q = Math.min(1, p.age / p.duration);
+    const x = p.ox + (p.tx - p.ox) * q;
+    const y = p.oy + (p.ty - p.oy) * q - (p.type === 'mortar' ? Math.sin(q * Math.PI) * 60 : 0);
+    ctx.beginPath();
+    ctx.moveTo(x - (p.tx - p.ox) * .03, y - (p.ty - p.oy) * .03);
+    ctx.lineTo(x, y);
+    ctx.strokeStyle = p.color;
+    ctx.lineWidth = p.type === 'mortar' ? 4 : 2;
+    ctx.stroke();
+    circle(ctx, x, y, p.type === 'mortar' ? 4 : 2.4, '#fff0d2');
+  }
+
+  for (const e of effects) {
+    const q = e.age / e.life;
+    ctx.globalAlpha = 1 - q;
+    if (e.type === 'beam') {
+      ctx.beginPath();
+      ctx.moveTo(e.x, e.y);
+      ctx.lineTo(e.tx, e.ty);
+      ctx.strokeStyle = e.color;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    } else if (e.type === 'aura') {
+      circle(ctx, e.x, e.y, e.range * (0.2 + q * 0.15), null, e.color, 1.5);
+    } else if (e.type === 'blast') {
+      circle(ctx, e.x, e.y, 65 * q, null, e.color, 2);
+    } else if (e.type === 'build') {
+      circle(ctx, e.x, e.y, 22 + q * 22, null, e.color, 2);
+    } else if (e.type === 'leak') {
+      circle(ctx, e.x, e.y, 14 + q * 50, null, '#ff8094', 3);
+    } else if (e.type === 'kill') {
+      ctx.fillStyle = '#ffd192';
+      ctx.font = 'bold 12px "DM Sans",sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('+' + e.bounty, e.x, e.y - 12 - q * 20);
+    }
+    ctx.globalAlpha = 1;
+  }
+  ctx.restore();
+}
+
+function frame(ms) {
+  const dt = Math.min((ms - last) / 1000 || 0, .05);
+  last = ms;
+  clock += dt;
+  if (screen === 'battle') {
+    if (!paused) {
+      for (let i = 0; i < speed; i++) {
+        game.step(dt);
+        events();
+        if (['won', 'lost'].includes(game.state)) break;
+      }
+      for (const e of effects) e.age += dt;
+      effects = effects.filter(e => e.age < e.life).slice(-180);
+      noticeTime -= dt;
+      if (noticeTime <= 0) $('notice').classList.remove('show');
+    }
+    uiClock += dt;
+    if (uiClock > .15) { syncUI(); uiClock = 0; }
+    draw();
+  }
+  requestAnimationFrame(frame);
+}
+
+makeTowerCards();
+drawHq();
+requestAnimationFrame(frame);
+
+window.__pristavQa = qa ? {
+  save,
+  key: SAVE_KEY,
+  finish(won = true) {
+    if (screen !== 'battle') startRun(mapIndex);
+    game.finish(won);
+    events();
+  },
+} : undefined;
