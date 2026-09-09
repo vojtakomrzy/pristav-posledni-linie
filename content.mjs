@@ -15,6 +15,7 @@ export const PALETTE = {
 export const MAP_IDS = ['a', 'b', 'c'];
 export const STARTER_TOWERS = ['cannon', 'tesla', 'cryo'];
 export const TOWER_IDS = [...STARTER_TOWERS, 'mortar'];
+export const BASE_LIVES = 3;
 
 export const TYPES = {
   cannon: {

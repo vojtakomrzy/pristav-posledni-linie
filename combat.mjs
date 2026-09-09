@@ -1,5 +1,5 @@
 import {
-  LEVELS, TYPES, parseEnemy, pathData, onPath, stats, upgradeCost, wavePlan, STARTER_TOWERS,
+  LEVELS, TYPES, parseEnemy, pathData, onPath, stats, upgradeCost, wavePlan, STARTER_TOWERS, BASE_LIVES,
 } from './content.mjs';
 
 const SPACING = { swarm: 0.22, scout: 0.34, ironclad: 0.7, juggernaut: 1.7 };
@@ -31,7 +31,7 @@ export class Defense {
     this.paths = this.level.paths.map(pathData);
     this.state = 'build';
     this.money = this.level.money + this.mods.money;
-    this.maxLives = 18 + this.mods.lives;
+    this.maxLives = BASE_LIVES + this.mods.lives;
     this.lives = this.maxLives;
     this.wave = 0;
     this.kills = 0;

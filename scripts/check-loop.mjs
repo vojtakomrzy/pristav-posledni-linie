@@ -1,5 +1,5 @@
 import {
-  Defense, TYPES, ENEMIES, LEVELS, MAP_COORDS, W, H, anchorsFor, blankSave, parseSave,
+  Defense, TYPES, ENEMIES, LEVELS, MAP_COORDS, W, H, BASE_LIVES, anchorsFor, blankSave, parseSave,
   persistSave, loadSave, buyMeta, buyMap, applyRunPayout, modsFromSave, demoCta,
   demoRankLocked, DEMO, SAVE_KEY, META_UPGRADES, MAP_UNLOCK_COST, mapUnlocked, metaCost,
 } from '../engine.mjs';
@@ -43,6 +43,8 @@ assert(metaCost('arsenal', 0) === 50, 'arsenal cost');
 assert(metaCost('interest', 0) === 35 && metaCost('interest', 1) === 80, 'interest costs');
 assert(metaCost('radar', 0) === 45, 'radar cost');
 assert(MAP_UNLOCK_COST === 60, 'map unlock 60 anchors');
+assert(BASE_LIVES === 3, 'designér base lives is 3');
+assert(META_UPGRADES.find(u => u.id === 'wall').lives.join() === '5,12', 'dock wall adds lives on top of base');
 assert(ENEMIES.scout1.family === 'scout' && ENEMIES.swarm1.ring === '#b8ffd9', 'scout/swarm teal ring');
 assert(ENEMIES.ironclad1.ring === '#ffd192' && ENEMIES.ironclad3.tier === 3, 'ironclad amber L1-L3');
 assert(ENEMIES.juggernaut.ring === '#ff8094' && ENEMIES.juggernaut.role === 'Boss', 'juggernaut magenta boss');
@@ -133,7 +135,9 @@ assert(frostListed.unlockedTowers.includes('cryo') && !frostListed.unlockedTower
 const mods = modsFromSave({ upgrades: { gold: 1, wall: 1, arsenal: 1, interest: 1, radar: 1 }, unlockedTowers: ['cannon', 'tesla', 'cryo', 'mortar'] });
 const g = new Defense(0, mods);
 assert(g.money === LEVELS[0].money + 50, 'starting gold adds credits not anchors');
-assert(g.maxLives === 23, 'dock wall adds lives');
+assert(g.maxLives === BASE_LIVES + 5, 'dock wall rank 1 adds 5 lives');
+const unbuffed = new Defense(0, modsFromSave(blankSave()));
+assert(unbuffed.maxLives === 3 && unbuffed.lives === 3, 'fresh run starts at 3 lives');
 assert(g.towerStats({ type: 'cannon', level: 1 }).range > TYPES.cannon.range, 'radar adds range');
 assert(g.money !== save.anchors, 'credits are not anchors');
 assert(g.allowed('mortar'), 'arsenal unlocks mortar');
@@ -247,6 +251,9 @@ assert(!/stripe|paypal|checkout|payment|buy now|koupit hru/i.test(uiSrc + saveSr
 assert(!/id="campaign"|Klasické sektory|Mapa sektorů/i.test(uiSrc), 'campaign is not the main path');
 assert(!/REPLACE/i.test(battle), 'replace out of scope');
 assert(!/ANCHORS|Anchors|remnant|zbytek/i.test(battle), 'no anchors on battle HUD');
+assert(!/★/.test(battle) && !/campaign/i.test(battle), 'no star campaign UI on battle HUD');
+assert((battle.match(/class="res /g) || []).length === 3, 'battle HUD is credits + lives + wave only');
+assert(/id="lives">3</.test(html), 'lives placeholder is base 3');
 assert(!/remnant|zbytek|zbytky|chest|yard|lights/i.test(uiSrc), 'no leftover remnants/campaign keys in live UI');
 assert(!/\bfrost\b/.test(uiSrc), 'no leftover frost type in live modules');
 assert(/src\.remnants/.test(saveSrc), 'save keeps one-shot remnants import only');
