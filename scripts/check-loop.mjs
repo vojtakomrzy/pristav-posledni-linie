@@ -1,5 +1,5 @@
 import {
-  Defense, TYPES, ENEMIES, LEVELS, MAP_COORDS, W, H, BASE_LIVES, anchorsFor, blankSave, parseSave,
+  Defense, TYPES, ENEMIES, LEVELS, MAP_COORDS, W, H, BASE_LIVES, nextWaveLabel, wavePlan, anchorsFor, blankSave, parseSave,
   persistSave, loadSave, buyMeta, buyMap, applyRunPayout, modsFromSave, demoCta,
   demoRankLocked, DEMO, SAVE_KEY, META_UPGRADES, MAP_UNLOCK_COST, mapUnlocked, metaCost,
 } from '../engine.mjs';
@@ -44,8 +44,14 @@ assert(metaCost('interest', 0) === 35 && metaCost('interest', 1) === 80, 'intere
 assert(metaCost('radar', 0) === 45, 'radar cost');
 assert(MAP_UNLOCK_COST === 60, 'map unlock 60 anchors');
 assert(BASE_LIVES === 3, 'designér base lives is 3');
-assert(META_UPGRADES.find(u => u.id === 'wall').lives.join() === '5,12', 'dock wall adds lives on top of base');
-assert(ENEMIES.scout1.family === 'scout' && ENEMIES.swarm1.ring === '#b8ffd9', 'scout/swarm teal ring');
+assert(META_UPGRADES.find(u => u.id === 'gold').bonus.join() === '15,30,50', 'starting gold +15/+30/+50');
+assert(META_UPGRADES.find(u => u.id === 'wall').lives.join() === '1,2', 'dock wall +1/+2 lives on top of base 3');
+assert(META_UPGRADES.find(u => u.id === 'interest').rate.join() === '0.05,0.1', 'harbor interest 5%/10%');
+assert(META_UPGRADES.find(u => u.id === 'radar').desc.includes('next wave'), 'radar is next-wave preview');
+assert(!('range' in META_UPGRADES.find(u => u.id === 'radar')), 'radar has no range bonus');
+assert(ENEMIES.scout1.family === 'scout' && ENEMIES.scout1.ring === '#7fd4ff', 'scout cyan ring');
+assert(ENEMIES.scout2.ring === '#7fd4ff' && ENEMIES.scout3.ring === '#7fd4ff', 'scout L2/L3 cyan ring');
+assert(ENEMIES.swarm1.ring === '#b8ffd9' && ENEMIES.swarm1.family === 'swarm', 'swarm mint ring');
 assert(ENEMIES.ironclad1.ring === '#ffd192' && ENEMIES.ironclad3.tier === 3, 'ironclad amber L1-L3');
 assert(ENEMIES.juggernaut.ring === '#ff8094' && ENEMIES.juggernaut.role === 'Boss', 'juggernaut magenta boss');
 assert(LEVELS.length === 3, 'maps A/B/C');
@@ -134,11 +140,18 @@ assert(frostListed.unlockedTowers.includes('cryo') && !frostListed.unlockedTower
 
 const mods = modsFromSave({ upgrades: { gold: 1, wall: 1, arsenal: 1, interest: 1, radar: 1 }, unlockedTowers: ['cannon', 'tesla', 'cryo', 'mortar'] });
 const g = new Defense(0, mods);
-assert(g.money === LEVELS[0].money + 50, 'starting gold adds credits not anchors');
-assert(g.maxLives === BASE_LIVES + 5, 'dock wall rank 1 adds 5 lives');
+assert(g.money === LEVELS[0].money + 15, 'starting gold adds credits not anchors');
+assert(g.maxLives === BASE_LIVES + 1, 'dock wall rank 1 adds 1 life');
+assert(g.maxLives === 4, 'wall rank 1 totals 4 lives');
 const unbuffed = new Defense(0, modsFromSave(blankSave()));
 assert(unbuffed.maxLives === 3 && unbuffed.lives === 3, 'fresh run starts at 3 lives');
-assert(g.towerStats({ type: 'cannon', level: 1 }).range > TYPES.cannon.range, 'radar adds range');
+assert(new Defense(0, { lives: 2 }).maxLives === 5, 'wall rank 2 totals 5 lives');
+assert(g.mods.radar === true, 'radar mod unlocks preview');
+assert(g.towerStats({ type: 'cannon', level: 1 }).range === TYPES.cannon.range, 'radar does not add range');
+assert(g.towerStats({ type: 'cannon', level: 2 }).range > TYPES.cannon.range, 'L2 still adds range');
+assert(unbuffed.mods.radar === false, 'radar off by default');
+assert(nextWaveLabel({ radar: false, state: 'build', plan: wavePlan(1) }) === 'Next wave hidden', 'no radar hides next wave');
+assert(nextWaveLabel({ radar: true, state: 'build', plan: wavePlan(1) }).includes('Swarm'), 'radar shows next wave');
 assert(g.money !== save.anchors, 'credits are not anchors');
 assert(g.allowed('mortar'), 'arsenal unlocks mortar');
 
@@ -206,7 +219,7 @@ boss.enemies[0].hp = 1;
 boss.hurt(boss.enemies[0], 50, 'tesla');
 assert(boss.bossDown, 'juggernaut counts as boss');
 
-const interest = new Defense(0, { money: 0, interest: 0.08 });
+const interest = new Defense(0, { money: 0, interest: 0.05 });
 interest.build(0, 'cannon');
 interest.money = 100;
 interest.startWave();
@@ -263,6 +276,8 @@ assert(/id="mode-build"/.test(html) && />BUILD</.test(html) && />UPGRADE</.test(
 assert(/START WAVE/.test(html) && /start-wave/.test(css), 'start wave amber dock button');
 assert(/mode-chip/.test(html) && /BUILDING/.test(html), 'mode chip BUILDING');
 assert(/hud-top/.test(html) && /id="credits"/.test(html) && /id="lives"/.test(html) && /wave-bar/.test(html), 'top strip credits lives wave');
+assert(/Next wave hidden/.test(html) && /nextWaveLabel/.test(uiSrc), 'radar gates next-wave preview');
+assert(!/\+18 m range|see farther through the fog/i.test(uiSrc + saveSrc), 'no leftover radar range copy');
 assert(!/mission-name|sector-label|id="money"|gold-mark/.test(html), 'no battle title or gold leftover ids');
 assert(/assets\/credits\.svg/.test(html) && /assets\/anchors\.svg/.test(html) && /assets\/lives\.svg/.test(html), 'hud icons');
 assert(/drawFog|lighthouse/.test(await readFile(new URL('../draw.mjs', import.meta.url), 'utf8')), 'flat overlay fog + lighthouse');

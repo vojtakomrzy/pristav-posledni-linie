@@ -1,6 +1,6 @@
 export {
   W, H, PALETTE, MAP_IDS, STARTER_TOWERS, TOWER_IDS, TYPES, ENEMIES, WAVES, LEVELS, MAP_COORDS, BASE_LIVES,
-  parseEnemy, wavePlan, distance, pathData, onPath, stats, upgradeCost, unique, canonTower,
+  parseEnemy, wavePlan, composeWave, nextWaveLabel, distance, pathData, onPath, stats, upgradeCost, unique, canonTower,
 } from './content.mjs';
 
 export {

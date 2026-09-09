@@ -61,9 +61,9 @@ export const TYPES = {
 };
 
 export const ENEMIES = {
-  scout1: { name: 'Scout', family: 'scout', tier: 1, role: 'Fast', hp: 34, speed: 102, size: 11, color: '#7a8f8a', bounty: 11, harm: 1, armor: 0, ring: '#b8ffd9' },
-  scout2: { name: 'Scout L2', family: 'scout', tier: 2, role: 'Fast', hp: 52, speed: 108, size: 14, color: '#6d8280', bounty: 15, harm: 1, armor: 0, ring: '#b8ffd9' },
-  scout3: { name: 'Scout L3', family: 'scout', tier: 3, role: 'Fast', hp: 78, speed: 114, size: 17, color: '#5f7474', bounty: 20, harm: 1, armor: 0, ring: '#b8ffd9' },
+  scout1: { name: 'Scout', family: 'scout', tier: 1, role: 'Fast', hp: 34, speed: 102, size: 11, color: '#7a8f8a', bounty: 11, harm: 1, armor: 0, ring: '#7fd4ff' },
+  scout2: { name: 'Scout L2', family: 'scout', tier: 2, role: 'Fast', hp: 52, speed: 108, size: 14, color: '#6d8280', bounty: 15, harm: 1, armor: 0, ring: '#7fd4ff' },
+  scout3: { name: 'Scout L3', family: 'scout', tier: 3, role: 'Fast', hp: 78, speed: 114, size: 17, color: '#5f7474', bounty: 20, harm: 1, armor: 0, ring: '#7fd4ff' },
   swarm1: { name: 'Swarm', family: 'swarm', tier: 1, role: 'Swarm', hp: 28, speed: 68, size: 9, color: '#6f8680', bounty: 8, harm: 1, armor: 0, ring: '#b8ffd9' },
   swarm2: { name: 'Swarm L2', family: 'swarm', tier: 2, role: 'Swarm', hp: 42, speed: 72, size: 12, color: '#647a76', bounty: 11, harm: 1, armor: 0, ring: '#b8ffd9' },
   swarm3: { name: 'Swarm L3', family: 'swarm', tier: 3, role: 'Swarm', hp: 62, speed: 66, size: 15, color: '#586e6c', bounty: 15, harm: 1, armor: 0, ring: '#b8ffd9' },
@@ -152,6 +152,19 @@ export function wavePlan(wave, qa = false) {
   return plans[wave - 1] || [];
 }
 
+export function composeWave(plan) {
+  const counts = {};
+  for (const t of plan || []) counts[t] = (counts[t] || 0) + 1;
+  return Object.entries(counts).map(([t, n]) => `${n}× ${ENEMIES[t]?.name || t}`).join(' · ');
+}
+
+export function nextWaveLabel({ radar = false, state = 'build', plan = [], hulls = 0 } = {}) {
+  if (state === 'wave') return `${hulls} hulls`;
+  if (state !== 'build') return '—';
+  if (!radar) return 'Next wave hidden';
+  return composeWave(plan) || '—';
+}
+
 export function distance(a, b) {
   const ax = Array.isArray(a) ? a[0] : a.x;
   const ay = Array.isArray(a) ? a[1] : a.y;
@@ -185,7 +198,7 @@ export function onPath(path, dist) {
   return { x, y, angle: Math.atan2(b[1] - a[1], b[0] - a[0]) };
 }
 
-export function stats(tower, mods = {}) {
+export function stats(tower) {
   const base = TYPES[tower.type];
   const level = tower.level || 1;
   return {
@@ -194,7 +207,7 @@ export function stats(tower, mods = {}) {
     desc: base.desc,
     color: base.color,
     damage: +(base.damage * (1 + (level - 1) * 0.38)).toFixed(1),
-    range: Math.round(base.range + (level - 1) * 18 + (mods.range || 0)),
+    range: Math.round(base.range + (level - 1) * 18),
     rate: +(base.rate * (1 - (level - 1) * 0.08)).toFixed(2),
   };
 }
