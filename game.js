@@ -479,7 +479,7 @@ function syncUI() {
     $('tower-stats').innerHTML = `${mid}<div><b>${s.range} m</b><span>RANGE</span></div><div><b>${s.rate.toFixed(1)} s</b><span>RATE</span></div>`;
   } else {
     $('selection-label').textContent = selected >= 0 ? 'PAD' : 'TIP';
-    $('selection-name').textContent = selected >= 0 ? `Pad ${selected + 1}` : 'Hold the bend.';
+    $('selection-name').textContent = selected >= 0 ? `Pad ${selected + 1}` : 'Corners.';
     $('selection-desc').textContent = selected >= 0 ? 'Pick a tower.' : game.level.tip;
   }
   if (t) {
