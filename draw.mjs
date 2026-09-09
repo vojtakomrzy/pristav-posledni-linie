@@ -63,7 +63,7 @@ export function circle(c, x, y, r, fill, stroke, width = 1) {
 
 export function turret(c, x, y, type, angle = -Math.PI / 2, level = 1, scale = 1) {
   const grow = 1 + (level - 1) * 0.16;
-  const size = 40 * scale * grow;
+  const size = 48 * scale * grow;
   if (blit(c, pic(towerAsset(type, level)), x, y, size, size)) return;
 
   const color = TYPES[type].color;
@@ -297,7 +297,7 @@ function drawShip(ctx, e) {
   const s = e.size;
   if (img) {
     ctx.rotate(e.angle);
-    const w = s * 3.4;
+    const w = s * 4.4;
     const h = w * (img.naturalHeight / img.naturalWidth || 0.5);
     ctx.globalAlpha = e.flash > 0 ? 0.85 : 1;
     ctx.drawImage(img, -w / 2, -h / 2, w, h);
@@ -359,14 +359,14 @@ function drawShip(ctx, e) {
 }
 
 function drawPadGlow(ctx, x, y, { tower, hot }) {
-  const glow = ctx.createRadialGradient(x, y, 2, x, y, 34);
-  glow.addColorStop(0, hot ? 'rgba(127,212,255,0.5)' : tower ? 'rgba(127,212,255,0.16)' : 'rgba(127,212,255,0.32)');
+  const glow = ctx.createRadialGradient(x, y, 2, x, y, 40);
+  glow.addColorStop(0, hot ? 'rgba(127,212,255,0.62)' : tower ? 'rgba(127,212,255,0.2)' : 'rgba(127,212,255,0.42)');
   glow.addColorStop(1, 'rgba(127,212,255,0)');
   ctx.fillStyle = glow;
   ctx.beginPath();
-  ctx.arc(x, y, 34, 0, Math.PI * 2);
+  ctx.arc(x, y, 40, 0, Math.PI * 2);
   ctx.fill();
-  circle(ctx, x, y, 22, '#071e27cc', hot ? '#7fd4ff' : tower ? '#7eab92aa' : '#7fd4ffcc', hot ? 2.4 : 1.6);
+  circle(ctx, x, y, 24, '#071e27ee', hot ? '#7fd4ff' : tower ? '#7eab92cc' : '#7fd4ff', hot ? 2.6 : 2);
   if (!tower) {
     ctx.strokeStyle = hot ? '#7fd4ff' : '#7fd4ff99';
     ctx.lineWidth = 1.5;

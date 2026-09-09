@@ -330,7 +330,7 @@ function makeTowerCards() {
       <span class="tower-key">${i + 1}</span>
     </button>`).join('');
   document.querySelectorAll('[data-tower]').forEach(b => {
-    turret(b.querySelector('canvas').getContext('2d'), 48, 48, b.dataset.tower, -.55, 1, 1.35);
+    turret(b.querySelector('canvas').getContext('2d'), 48, 48, b.dataset.tower, -.55, 1, 1.55);
     b.onclick = () => chooseType(b.dataset.tower);
   });
 }
@@ -591,7 +591,10 @@ function frame(ms) {
 
 makeTowerCards();
 drawHq();
-loadAssets().then(() => makeTowerCards());
+loadAssets().then(() => {
+  makeTowerCards();
+  if (screen === 'battle') syncUI();
+});
 requestAnimationFrame(frame);
 
 window.__pristavQa = qa ? {
