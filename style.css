@@ -431,8 +431,8 @@ h1 em { color: var(--mint); font-style: normal; }
   color: var(--muted);
 }
 .start-wave {
-  background: transparent;
-  color: var(--amber);
+  background: var(--amber);
+  color: #2a1a08;
   border: 2px solid var(--amber);
   border-radius: 4px;
   min-height: 48px;
@@ -440,8 +440,17 @@ h1 em { color: var(--mint); font-style: normal; }
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 1.8px;
+  box-shadow: 0 0 18px #ffd19266;
 }
-.start-wave:hover:not(:disabled) { background: #ffd19218; }
+.start-wave:hover:not(:disabled) {
+  background: #ffe0b0;
+  box-shadow: 0 0 24px #ffd192aa;
+}
+.start-wave:disabled {
+  background: var(--amber);
+  color: #2a1a08;
+  border-color: var(--amber);
+}
 .dock-tools { display: flex; gap: 6px; }
 .small-btn { font-size: 16px; min-width: 42px; height: 46px; }
 

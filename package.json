@@ -1,7 +1,7 @@
 {
   "name": "pristav-posledni-linie",
   "version": "1.0.0",
-  "description": "Přístav — Poslední linie",
+  "description": "Port — Last Line",
   "main": "electron/main.js",
   "author": "Přístav",
   "license": "UNLICENSED",
@@ -13,7 +13,7 @@
   },
   "build": {
     "appId": "cz.pristav.posledni-linie",
-    "productName": "Přístav — Poslední linie",
+    "productName": "Port — Last Line",
     "directories": {
       "output": "dist"
     },
