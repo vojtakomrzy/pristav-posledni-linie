@@ -1,5 +1,5 @@
 import {
-  Defense, LEVELS, TYPES, ENEMIES, W, H, wavePlan,
+  Defense, LEVELS, TYPES, W, H, wavePlan, nextWaveLabel,
   SAVE_KEY, SOUND_KEY, META_UPGRADES, MAP_UNLOCK_COST,
   loadSave, persistSave, modsFromSave, buyMeta, buyMap, applyRunPayout,
   demoRankLocked, demoCta, mapUnlocked, metaCost,
@@ -427,12 +427,6 @@ $('speed').onclick = () => {
   $('speed').textContent = speed + '×';
 };
 
-function waveText(plan) {
-  const counts = {};
-  for (const t of plan) counts[t] = (counts[t] || 0) + 1;
-  return Object.entries(counts).map(([t, n]) => `${n}× ${ENEMIES[t]?.name || t}`).join(' · ');
-}
-
 function syncUI() {
   if (screen !== 'battle') return;
   $('credits').textContent = fmt(game.money);
@@ -444,9 +438,12 @@ function syncUI() {
   $('mode-chip').textContent = chip;
   $('send-wave').disabled = game.state !== 'build' || paused;
   $('send-wave').textContent = game.state === 'wave' ? 'WAVE LIVE' : game.state === 'won' ? 'HELD' : 'START WAVE';
-  if (game.state === 'wave') $('next-enemies').textContent = `${game.enemies.length + game.queue.length} hulls`;
-  else if (game.state === 'build') $('next-enemies').textContent = waveText(wavePlan(game.wave + 1, qa));
-  else $('next-enemies').textContent = '—';
+  $('next-enemies').textContent = nextWaveLabel({
+    radar: game.mods.radar,
+    state: game.state,
+    plan: wavePlan(game.wave + 1, qa),
+    hulls: game.enemies.length + game.queue.length,
+  });
 
   document.querySelectorAll('[data-tower]').forEach(b => {
     const type = b.dataset.tower;

@@ -12,7 +12,7 @@ export function normalizeMods(mods = {}) {
     money: Math.max(0, Math.round(Number(mods.money) || 0)),
     lives: Math.max(0, Math.round(Number(mods.lives) || 0)),
     interest: Math.min(0.25, Math.max(0, Number(mods.interest) || 0)),
-    range: Math.max(0, Math.round(Number(mods.range) || 0)),
+    radar: !!mods.radar,
     towers,
     qa: !!mods.qa,
   };
@@ -50,7 +50,7 @@ export class Defense {
   }
 
   towerStats(tower) {
-    return stats(tower, this.mods);
+    return stats(tower);
   }
 
   towerCost(type) {

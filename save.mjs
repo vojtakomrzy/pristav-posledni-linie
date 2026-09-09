@@ -20,8 +20,8 @@ export const META_UPGRADES = [
     icon: 'gold',
     max: 3,
     costs: [25, 55, 95],
-    bonus: [50, 110, 180],
-    label: n => (n ? `+${[50, 110, 180][n - 1]} credits` : 'No bonus yet'),
+    bonus: [15, 30, 50],
+    label: n => (n ? `+${[15, 30, 50][n - 1]} credits` : 'No bonus yet'),
   },
   {
     id: 'wall',
@@ -30,8 +30,8 @@ export const META_UPGRADES = [
     icon: 'wall',
     max: 2,
     costs: [40, 100],
-    lives: [5, 12],
-    label: n => (n ? `+${[5, 12][n - 1]} lives` : 'No bonus yet'),
+    lives: [1, 2],
+    label: n => (n ? `+${[1, 2][n - 1]} lives` : 'No bonus yet'),
   },
   {
     id: 'arsenal',
@@ -49,18 +49,17 @@ export const META_UPGRADES = [
     icon: 'interest',
     max: 2,
     costs: [35, 80],
-    rate: [0.08, 0.16],
-    label: n => (n ? `+${[8, 16][n - 1]}% after waves` : 'No interest yet'),
+    rate: [0.05, 0.10],
+    label: n => (n ? `+${[5, 10][n - 1]}% after waves` : 'No interest yet'),
   },
   {
     id: 'radar',
     name: 'Radar',
-    desc: 'Towers see farther through the fog.',
+    desc: 'See the next wave before it sails.',
     icon: 'radar',
     max: 1,
     costs: [45],
-    range: 18,
-    label: n => (n ? '+18 m range' : 'No bonus yet'),
+    label: n => (n ? 'Next wave preview' : 'Waves stay hidden'),
   },
 ];
 
@@ -188,7 +187,7 @@ export function modsFromSave(save) {
     money: g ? gold.bonus[g - 1] : 0,
     lives: w ? wall.lives[w - 1] : 0,
     interest: i ? interest.rate[i - 1] : 0,
-    range: save.upgrades.radar ? 18 : 0,
+    radar: save.upgrades.radar > 0,
     towers: save.unlockedTowers,
   };
 }
