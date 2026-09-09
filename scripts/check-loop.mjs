@@ -1,7 +1,7 @@
 import {
-  Defense, TYPES, ENEMIES, LEVELS, stats, remnantsFor, blankSave, parseSave,
+  Defense, TYPES, ENEMIES, LEVELS, remnantsFor, blankSave, parseSave,
   persistSave, loadSave, buyMeta, applyRunPayout, modsFromSave, demoCta,
-  demoRankLocked, META_COST, DEMO, SAVE_KEY, auraBonus,
+  demoRankLocked, META_COST, DEMO, SAVE_KEY, META_UPGRADES,
 } from '../engine.mjs';
 
 const fails = [];
@@ -29,7 +29,12 @@ function pump(game, seconds, step = 1 / 60) {
 assert(TYPES.cannon.role === 'Single', 'cannon is single');
 assert(TYPES.mortar.role === 'AOE', 'mortar is aoe');
 assert(TYPES.frost.role === 'Slow', 'frost is slow');
-assert(TYPES.beacon.role === 'Support', 'beacon is support');
+assert(TYPES.tesla.role === 'Support', 'tesla is support');
+assert(TYPES.cannon.color === '#ffd192', 'cannon accent');
+assert(TYPES.tesla.color === '#7fd4ff', 'tesla accent');
+assert(TYPES.frost.color === '#8ecbff', 'cryo accent');
+assert(TYPES.mortar.color === '#c4a574', 'mortar accent');
+assert(META_UPGRADES.map(u => u.icon).join() === 'coins,lighthouse,discount', 'grafik meta icons');
 assert(ENEMIES.swarm.role === 'Swarm' && ENEMIES.fast.role === 'Fast' && ENEMIES.tank.role === 'Tank', 'three threats');
 assert(LEVELS.length >= 1 && LEVELS.length <= 2, 'one or two harbor maps');
 assert(!Object.values(TYPES).some(t => /kampaň|sektor/i.test(t.name)), 'no campaign tower names');
@@ -82,24 +87,24 @@ const combat = new Defense(0, { money: 500 });
 assert(combat.build(0, 'cannon'), 'build cannon');
 assert(combat.build(1, 'mortar'), 'build mortar');
 assert(combat.build(2, 'frost'), 'build frost');
-assert(combat.build(3, 'beacon'), 'build beacon');
+assert(combat.build(3, 'tesla'), 'build tesla');
 assert(!combat.build(0, 'cannon'), 'no double build');
 assert(combat.startWave(), 'start wave 1');
 pump(combat, 25);
 assert(combat.kills > 0, `cannon/mortar/frost sink hulls, kills=${combat.kills}`);
 assert(combat.state === 'build' || combat.state === 'won' || combat.lives < combat.maxLives || combat.kills > 0, 'wave resolved without crash');
 
-const aura = new Defense(0, { money: 500 });
-aura.build(0, 'cannon');
-aura.build(5, 'beacon');
-const cannon = aura.towerAt(0);
-const beacon = aura.towerAt(5);
-const bonus = auraBonus(cannon, aura.towers);
-assert(bonus > 0, `beacon buffs nearby cannon (${bonus})`);
-const buffed = stats(cannon, aura.towers).damage;
-const bare = stats(cannon, [cannon]).damage;
-assert(buffed > bare, 'support raises cannon damage');
-assert(stats(beacon, aura.towers).damage === 0, 'beacon deals no direct damage');
+const zap = new Defense(0, { money: 500 });
+zap.build(0, 'tesla');
+zap.startWave();
+zap.spawnEnemy('swarm');
+zap.spawnEnemy('swarm');
+const [aShip, bShip] = zap.enemies;
+aShip.x = zap.towers[0].x + 20; aShip.y = zap.towers[0].y; aShip.dist = 100;
+bShip.x = aShip.x + 40; bShip.y = aShip.y; bShip.dist = 110;
+zap.fire(zap.towers[0], 1);
+assert(zap.events.filter(e => e.type === 'beam').length >= 2, 'tesla chain arc');
+assert(aShip.hp < aShip.maxHp && bShip.hp < bShip.maxHp, 'tesla hits chained hulls');
 
 const frost = new Defense(0, { money: 400 });
 frost.build(0, 'frost');
@@ -160,6 +165,10 @@ const src = await (await import('node:fs/promises')).readFile(new URL('../engine
   + await (await import('node:fs/promises')).readFile(new URL('../index.html', import.meta.url), 'utf8');
 assert(!/stripe|paypal|checkout|payment|buy now|koupit hru/i.test(src), 'no payment gateway');
 assert(!/id="campaign"|Klasické sektory|Mapa sektorů/i.test(src), 'campaign is not the main path');
+assert(/fill="#b8ffd9" stroke="#071e27"/.test(src), 'remnant diamond mint fill + teal stroke');
+assert(/<circle cx="8" cy="8" r="6.2" fill="#ffd192"/.test(src), 'gold is amber coin');
+assert(/life-mark/.test(src) && /wave-bar/.test(src), 'lives lighthouse-dot and mint wave bar');
+assert(/kind === 'coins'/.test(src) && /kind === 'lighthouse'/.test(src), '24px meta icon glyphs in UI');
 
 if (fails.length) {
   console.error('FAIL');
@@ -168,5 +177,5 @@ if (fails.length) {
 }
 console.log('ok', {
   lossPay, winPay, r1, r2, remnants: save.remnants, runs: save.runs,
-  kills: combat.kills, aura: bonus, gold: g.money,
+  kills: combat.kills, teslaBeams: zap.events.filter(e => e.type === 'beam').length, gold: g.money,
 });

@@ -109,62 +109,52 @@ function turret(c, x, y, type, angle = -Math.PI / 2, level = 1, scale = 1) {
   c.save();
   c.translate(x, y);
   c.scale(scale, scale);
-  circle(c, 0, 0, 18, '#0b2a32', color, 2);
-  if (type === 'beacon') {
+  circle(c, 0, 0, 15, '#071e27', color, 2);
+  if (type === 'cannon') {
+    c.save();
+    c.rotate(angle);
+    c.fillStyle = color;
+    c.fillRect(4, -3.5, 16, 7);
+    c.restore();
+  } else if (type === 'tesla') {
+    c.strokeStyle = color;
+    c.lineWidth = 3;
+    c.lineCap = 'round';
     c.beginPath();
-    c.moveTo(0, -16);
-    c.lineTo(12, 0);
-    c.lineTo(0, 16);
-    c.lineTo(-12, 0);
+    c.moveTo(0, 7);
+    c.lineTo(0, -13);
+    c.stroke();
+    c.beginPath();
+    c.arc(0, -13, 8, Math.PI * 0.18, Math.PI * 0.82);
+    c.stroke();
+  } else if (type === 'frost') {
+    c.beginPath();
+    c.moveTo(0, -14);
+    c.lineTo(10, 0);
+    c.lineTo(0, 14);
+    c.lineTo(-10, 0);
     c.closePath();
     c.fillStyle = color;
     c.fill();
-    circle(c, 0, 0, 4, '#0b2a32');
-  } else {
+  } else if (type === 'mortar') {
     c.save();
-    c.rotate(angle);
-    if (type === 'cannon') {
-      c.fillStyle = color;
-      c.fillRect(4, -4, 26, 8);
-      circle(c, 0, 0, 6, color);
-    }
-    if (type === 'mortar') {
-      c.fillStyle = color;
-      c.beginPath();
-      c.moveTo(-8, 8);
-      c.lineTo(22, 2);
-      c.lineTo(22, -2);
-      c.lineTo(-8, -8);
-      c.closePath();
-      c.fill();
-      circle(c, 8, 0, 7, '#0b2a32', color, 2);
-    }
-    if (type === 'frost') {
-      c.strokeStyle = color;
-      c.lineWidth = 2.4;
-      for (let i = 0; i < 6; i++) {
-        c.rotate(Math.PI / 3);
-        c.beginPath();
-        c.moveTo(0, 0);
-        c.lineTo(16, 0);
-        c.stroke();
-      }
-      circle(c, 0, 0, 4, color);
-    }
+    c.rotate(angle - 0.5);
+    c.fillStyle = color;
+    c.fillRect(2, -3.5, 14, 7);
     c.restore();
   }
-  for (let i = 0; i < level; i++) circle(c, (i - (level - 1) / 2) * 7, 24, 2.2, color);
+  for (let i = 0; i < level; i++) circle(c, (i - (level - 1) / 2) * 7, 22, 2.1, color);
   c.restore();
 }
 
 function iconSvg(kind) {
-  if (kind === 'chest') {
-    return `<svg viewBox="0 0 48 48" aria-hidden="true"><rect x="8" y="18" width="32" height="20" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 26h32" stroke="currentColor" stroke-width="2"/><rect x="21" y="24" width="6" height="8" fill="currentColor"/></svg>`;
+  if (kind === 'coins') {
+    return `<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><circle cx="8.5" cy="16.5" r="4.2" fill="#ffd192" stroke="#071e27" stroke-width="1.2"/><circle cx="15.5" cy="16.5" r="4.2" fill="#ffd192" stroke="#071e27" stroke-width="1.2"/><circle cx="12" cy="10" r="4.2" fill="#ffd192" stroke="#071e27" stroke-width="1.2"/></svg>`;
   }
-  if (kind === 'lights') {
-    return `<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M24 8l8 12v20H16V20z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16 20h16" stroke="currentColor" stroke-width="2"/><path d="M24 8V4" stroke="currentColor" stroke-width="2"/></svg>`;
+  if (kind === 'lighthouse') {
+    return `<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path d="M12 3.2 19 21 H5 Z" fill="#b8ffd9" stroke="#071e27" stroke-width="1.2" stroke-linejoin="round"/><circle cx="12" cy="8.2" r="2" fill="#ffd192"/></svg>`;
   }
-  return `<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M14 34l20-20" stroke="currentColor" stroke-width="2"/><path d="M30 10l8 8-6 2-4-4z" fill="currentColor"/><path d="M12 32l4 4 8-4" fill="none" stroke="currentColor" stroke-width="2"/></svg>`;
+  return `<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path d="M12 2.8 20 7.2 v6.2 c0 4-3.4 7.4-8 8.8 C7.4 20.8 4 17.4 4 13.4 V7.2 Z" fill="#b8ffd9" stroke="#071e27" stroke-width="1.2" stroke-linejoin="round"/><circle cx="9.2" cy="10.2" r="1.35" fill="#071e27"/><circle cx="14.8" cy="14.6" r="1.35" fill="#071e27"/><path d="M14.6 9.4 9.4 15.4" stroke="#071e27" stroke-width="1.4" stroke-linecap="round"/></svg>`;
 }
 
 function hideScreens() {
@@ -321,7 +311,7 @@ $('help').onclick = () => {
   const wasPaused = paused;
   if (screen === 'battle') paused = true;
   modal('FIELD NOTES', 'Hold the harbor.', `<ol class="help-list">
-    <li><b>Build on pads.</b> Four roles: Cannon, Mortar, Cryo, Beacon.</li>
+    <li><b>Build on pads.</b> Four roles: Cannon, Tesla, Cryo, Mortar.</li>
     <li><b>Gold</b> buys towers this run. <b>Remnants</b> stay at Headquarters.</li>
     <li><b>Die or hold.</b> Spend remnants, deploy again.</li>
     <li>1–4 tower · arrows pad · Enter build · U upgrade · space wave · P pause</li>
@@ -444,9 +434,10 @@ function waveText(plan) {
 function syncUI() {
   if (screen !== 'battle') return;
   $('money').textContent = fmt(game.money);
-  $('lives').innerHTML = `${game.lives} <small>/ ${game.maxLives}</small>`;
-  $('lives').classList.toggle('low-health', game.lives < Math.ceil(game.maxLives * .4));
-  $('wave').innerHTML = `${game.wave} <small>/ ${game.level.waves}</small>`;
+  $('lives').textContent = game.lives;
+  $('lives-wrap').classList.toggle('low-health', game.lives < Math.ceil(game.maxLives * .4));
+  $('wave').textContent = `${game.wave}/${game.level.waves}`;
+  $('wave-fill').style.width = `${Math.min(1, game.wave / game.level.waves) * 100}%`;
   $('board-state').textContent = paused ? 'PAUSE' : game.state === 'wave' ? 'INBOUND' : game.state === 'build' ? 'BUILD' : game.state === 'won' ? 'HELD' : 'BROKEN';
   $('send-wave').disabled = game.state !== 'build' || paused;
   $('send-wave').innerHTML = game.state === 'wave' ? 'Wave live' : game.state === 'won' ? 'Held' : 'Send wave <span>→</span>';
@@ -465,7 +456,7 @@ function syncUI() {
 
   const t = game.towerAt(selected);
   const type = t?.type || blueprint;
-  const s = type ? stats(t || { type, level: 1 }, game.towers) : null;
+  const s = type ? stats(t || { type, level: 1 }) : null;
   $('cancel-selection').classList.toggle('hidden', selected < 0 && !blueprint);
   $('tower-stats').classList.toggle('hidden', !s);
   $('upgrade-actions').classList.toggle('hidden', !t);
@@ -473,9 +464,7 @@ function syncUI() {
     $('selection-label').textContent = t ? `TOWER / ${t.level} OF 3` : 'READY';
     $('selection-name').textContent = `${s.name} · ${s.role}`;
     $('selection-desc').textContent = s.desc;
-    const mid = type === 'beacon'
-      ? `<div><b>${Math.round(s.range)}</b><span>AURA</span></div>`
-      : `<div><b>${Math.round(s.damage)}</b><span>DMG</span></div>`;
+    const mid = `<div><b>${Math.round(s.damage)}</b><span>DMG</span></div>`;
     $('tower-stats').innerHTML = `${mid}<div><b>${s.range} m</b><span>RANGE</span></div><div><b>${s.rate.toFixed(1)} s</b><span>RATE</span></div>`;
   } else {
     $('selection-label').textContent = selected >= 0 ? 'PAD' : 'TIP';
@@ -650,7 +639,7 @@ function draw() {
   const type = t?.type || blueprint;
   if (active >= 0 && type) {
     const [x, y] = game.level.pads[active];
-    const s = stats(t || { type, level: 1, x, y }, game.towers);
+    const s = stats(t || { type, level: 1 });
     circle(ctx, x, y, s.range, s.color + '10', s.color + '55', 1);
   }
 
@@ -672,22 +661,22 @@ function draw() {
 
   const baseX = 931;
   const baseY = 300;
-  circle(ctx, baseX, baseY, 28, '#0b2a32', '#ffd192', 2);
   ctx.beginPath();
-  ctx.arc(baseX, baseY, 34, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * game.lives / game.maxLives);
-  ctx.strokeStyle = game.lives < Math.ceil(game.maxLives * .4) ? '#ff8094' : '#ffd192';
-  ctx.lineWidth = 3;
+  ctx.moveTo(baseX, baseY - 22);
+  ctx.lineTo(baseX + 16, baseY + 20);
+  ctx.lineTo(baseX - 16, baseY + 20);
+  ctx.closePath();
+  ctx.fillStyle = '#b8ffd9';
+  ctx.fill();
+  ctx.strokeStyle = '#071e27';
+  ctx.lineWidth = 1.6;
   ctx.stroke();
-  ctx.fillStyle = '#ffd192';
-  ctx.font = '22px sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText('Ⅱ', baseX, baseY);
+  circle(ctx, baseX, baseY - 8, 4.2, game.lives < Math.ceil(game.maxLives * .4) ? '#ff8094' : '#ffd192');
 
   for (const tw of game.towers) {
     turret(ctx, tw.x, tw.y, tw.type, tw.angle, tw.level);
-    if (tw.type !== 'beacon' && tw.cool > stats(tw, game.towers).rate - .07) {
-      circle(ctx, tw.x + Math.cos(tw.angle) * 26, tw.y + Math.sin(tw.angle) * 26, 5, TYPES[tw.type].color);
+    if (tw.cool > stats(tw).rate - .07) {
+      circle(ctx, tw.x + Math.cos(tw.angle) * 22, tw.y + Math.sin(tw.angle) * 22, 4, TYPES[tw.type].color);
     }
   }
 

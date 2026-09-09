@@ -33,7 +33,7 @@
           <p>Die, upgrade, hold one more run.</p>
         </div>
         <div class="remnant-bank" aria-label="Remnants">
-          <span class="remnant-mark" aria-hidden="true"></span>
+          <svg class="remnant-mark" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.15 14.85 8 8 14.85 1.15 8Z" fill="#b8ffd9" stroke="#071e27" stroke-width="1.35" stroke-linejoin="round"/></svg>
           <b id="hq-remnants">0</b>
           <span>REMNANTS</span>
         </div>
@@ -63,17 +63,17 @@
             <h2 id="mission-name">Inner Harbor</h2>
           </div>
           <div class="resources">
-            <div class="res gold">
-              <span><i class="gold-mark" aria-hidden="true"></i> GOLD</span>
+            <div class="res gold" title="Credits">
+              <svg class="gold-mark" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.2" fill="#ffd192"/></svg>
               <b id="money">360</b>
             </div>
-            <div class="res">
-              <span>LIVES</span>
-              <b id="lives">18 <small>/ 18</small></b>
+            <div class="res lives" title="Lives" id="lives-wrap">
+              <svg class="life-mark" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.8 13.4 14.2H2.6Z" fill="#b8ffd9" stroke="#071e27" stroke-width="1.2" stroke-linejoin="round"/><circle cx="8" cy="6" r="1.55" fill="#ffd192"/></svg>
+              <b id="lives">18</b>
             </div>
-            <div class="res">
-              <span>WAVE</span>
-              <b id="wave">0 <small>/ 8</small></b>
+            <div class="res wave" title="Wave">
+              <span class="wave-bar" aria-hidden="true"><i id="wave-fill"></i></span>
+              <b id="wave">0/8</b>
             </div>
           </div>
         </div>
@@ -121,7 +121,7 @@
       <span class="eyebrow" id="result-kicker">RUN OVER</span>
       <h1 id="result-title">The lantern held.</h1>
       <div class="result-gain">
-        <span class="remnant-mark" aria-hidden="true"></span>
+        <svg class="remnant-mark" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.15 14.85 8 8 14.85 1.15 8Z" fill="#b8ffd9" stroke="#071e27" stroke-width="1.35" stroke-linejoin="round"/></svg>
         <b id="result-remnants">+0</b>
         <span>REMNANTS</span>
       </div>

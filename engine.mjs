@@ -24,44 +24,44 @@ export const TYPES = {
     role: 'Single',
     tag: 'Single target',
     cost: 80,
-    color: PALETTE.mint,
+    color: '#ffd192',
     desc: 'Steady shot. Cheap first line.',
     damage: 24,
     range: 145,
     rate: 0.52,
   },
-  mortar: {
-    name: 'Mortar',
-    role: 'AOE',
-    tag: 'Area blast',
-    cost: 155,
-    color: PALETTE.amber,
-    desc: 'Shell hits every hull in the blast.',
-    damage: 30,
-    range: 170,
-    rate: 1.5,
+  tesla: {
+    name: 'Tesla',
+    role: 'Support',
+    tag: 'Chain arc',
+    cost: 140,
+    color: '#7fd4ff',
+    desc: 'Arc jumps up to 3 hulls. Ignores armor.',
+    damage: 16,
+    range: 125,
+    rate: 0.85,
   },
   frost: {
     name: 'Cryo',
     role: 'Slow',
     tag: 'Slow field',
     cost: 105,
-    color: PALETTE.text,
+    color: '#8ecbff',
     desc: 'Cuts speed by 45% for 2s. Place before damage.',
     damage: 8,
     range: 135,
     rate: 0.88,
   },
-  beacon: {
-    name: 'Beacon',
-    role: 'Support',
-    tag: 'Tower aura',
-    cost: 125,
-    color: PALETTE.mint,
-    desc: 'Nearby towers deal more damage.',
-    damage: 0,
-    range: 155,
-    rate: 1.1,
+  mortar: {
+    name: 'Mortar',
+    role: 'AOE',
+    tag: 'Area blast',
+    cost: 155,
+    color: '#c4a574',
+    desc: 'Shell hits every hull in the blast.',
+    damage: 30,
+    range: 170,
+    rate: 1.5,
   },
 };
 
@@ -74,25 +74,25 @@ export const ENEMIES = {
 export const META_UPGRADES = [
   {
     id: 'chest',
-    name: 'War Chest',
+    name: 'Starting credits',
     desc: 'More gold at deploy.',
-    icon: 'chest',
+    icon: 'coins',
     max: 5,
     label: n => (n ? `+${n * 45} gold` : 'No bonus yet'),
   },
   {
     id: 'lights',
-    name: 'Harbor Lights',
+    name: 'Stronger lighthouse',
     desc: 'The lantern holds longer.',
-    icon: 'lights',
+    icon: 'lighthouse',
     max: 5,
     label: n => (n ? `+${n * 2} lives` : 'No bonus yet'),
   },
   {
     id: 'yard',
-    name: 'Yard Discount',
+    name: 'Arsenal discount',
     desc: 'Towers and upgrades cost less gold.',
-    icon: 'yard',
+    icon: 'discount',
     max: 5,
     label: n => (n ? `−${n * 7}% gold cost` : 'No bonus yet'),
   },
@@ -179,32 +179,17 @@ export function onPath(path, dist) {
   return { x, y, angle: Math.atan2(b[1] - a[1], b[0] - a[0]) };
 }
 
-export function auraBonus(tower, towers = []) {
-  if (!tower || tower.type === 'beacon') return 0;
-  let bonus = 0;
-  for (const other of towers) {
-    if (other.type !== 'beacon') continue;
-    const range = TYPES.beacon.range + ((other.level || 1) - 1) * 18;
-    if (Math.hypot(other.x - tower.x, other.y - tower.y) <= range) {
-      bonus += 0.2 + ((other.level || 1) - 1) * 0.1;
-    }
-  }
-  return bonus;
-}
-
-export function stats(tower, towers = []) {
+export function stats(tower) {
   const base = TYPES[tower.type];
   const level = tower.level || 1;
-  const aura = auraBonus(tower, towers);
   return {
     name: base.name,
     role: base.role,
     desc: base.desc,
     color: base.color,
-    damage: +(base.damage * (1 + (level - 1) * 0.38) * (1 + aura)).toFixed(1),
+    damage: +(base.damage * (1 + (level - 1) * 0.38)).toFixed(1),
     range: Math.round(base.range + (level - 1) * 18),
     rate: +(base.rate * (1 - (level - 1) * 0.08)).toFixed(2),
-    aura,
   };
 }
 
@@ -442,7 +427,7 @@ export class Defense {
 
   hurt(enemy, amount, source) {
     let dmg = amount;
-    if (enemy.armor && source !== 'frost') dmg *= 0.5;
+    if (enemy.armor && source !== 'tesla' && source !== 'frost') dmg *= 0.5;
     enemy.hp -= dmg;
     enemy.flash = 0.1;
     if (enemy.hp <= 0) this.sink(enemy);
@@ -457,7 +442,7 @@ export class Defense {
   }
 
   target(tower, extra = 0) {
-    const s = stats(tower, this.towers);
+    const s = stats(tower);
     let best = null;
     let bestDist = 0;
     for (const e of this.enemies) {
@@ -472,24 +457,37 @@ export class Defense {
 
   fire(tower, dt) {
     tower.cool -= dt;
-    const s = stats(tower, this.towers);
-    if (tower.type === 'beacon') {
-      if (tower.cool <= 0) {
-        tower.cool = s.rate;
-        this.events.push({ type: 'aura', x: tower.x, y: tower.y, range: s.range, color: s.color });
-      }
-      return;
-    }
+    const s = stats(tower);
     const foe = this.target(tower);
     if (foe) tower.angle = Math.atan2(foe.y - tower.y, foe.x - tower.x);
     if (tower.cool > 0 || !foe) return;
     tower.cool = s.rate;
-    if (tower.type === 'frost') {
-      this.events.push({
-        type: 'beam', x: tower.x, y: tower.y, tx: foe.x, ty: foe.y, color: s.color, frost: true,
-      });
-      foe.slow = 2;
-      this.hurt(foe, s.damage, 'frost');
+    if (tower.type === 'tesla' || tower.type === 'frost') {
+      const chain = [foe];
+      if (tower.type === 'tesla') {
+        const rest = this.enemies.filter(e => e !== foe)
+          .sort((a, b) => Math.hypot(a.x - foe.x, a.y - foe.y) - Math.hypot(b.x - foe.x, b.y - foe.y));
+        for (const e of rest) {
+          if (chain.length >= 3) break;
+          const last = chain[chain.length - 1];
+          if (Math.hypot(e.x - last.x, e.y - last.y) < 95) chain.push(e);
+        }
+      }
+      let from = tower;
+      for (const e of chain) {
+        this.events.push({
+          type: 'beam',
+          x: from.x ?? tower.x,
+          y: from.y ?? tower.y,
+          tx: e.x,
+          ty: e.y,
+          color: s.color,
+          frost: tower.type === 'frost',
+        });
+        this.hurt(e, s.damage, tower.type);
+        if (tower.type === 'frost') e.slow = 2;
+        from = e;
+      }
       return;
     }
     const travel = Math.hypot(foe.x - tower.x, foe.y - tower.y);
