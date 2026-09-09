@@ -1,5 +1,5 @@
 export {
-  W, H, PALETTE, MAP_IDS, STARTER_TOWERS, TOWER_IDS, TYPES, ENEMIES, WAVES, LEVELS,
+  W, H, PALETTE, MAP_IDS, STARTER_TOWERS, TOWER_IDS, TYPES, ENEMIES, WAVES, LEVELS, MAP_COORDS,
   parseEnemy, wavePlan, distance, pathData, onPath, stats, upgradeCost, unique, canonTower,
 } from './content.mjs';
 

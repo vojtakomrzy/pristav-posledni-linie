@@ -1,5 +1,5 @@
 import {
-  Defense, TYPES, ENEMIES, LEVELS, anchorsFor, blankSave, parseSave,
+  Defense, TYPES, ENEMIES, LEVELS, MAP_COORDS, W, H, anchorsFor, blankSave, parseSave,
   persistSave, loadSave, buyMeta, buyMap, applyRunPayout, modsFromSave, demoCta,
   demoRankLocked, DEMO, SAVE_KEY, META_UPGRADES, MAP_UNLOCK_COST, mapUnlocked, metaCost,
 } from '../engine.mjs';
@@ -47,11 +47,20 @@ assert(ENEMIES.scout1.family === 'scout' && ENEMIES.swarm1.ring === '#b8ffd9', '
 assert(ENEMIES.ironclad1.ring === '#ffd192' && ENEMIES.ironclad3.tier === 3, 'ironclad amber L1-L3');
 assert(ENEMIES.juggernaut.ring === '#ff8094' && ENEMIES.juggernaut.role === 'Boss', 'juggernaut magenta boss');
 assert(LEVELS.length === 3, 'maps A/B/C');
-assert(LEVELS[0].id === 'a' && LEVELS[0].pads.length >= 6 && LEVELS[0].pads.length <= 9, 'map A S-lane pads');
+assert(W === MAP_COORDS.coordinateSpace.width && H === MAP_COORDS.coordinateSpace.height, 'board matches grafik space');
+assert(LEVELS[0].id === 'a' && LEVELS[0].grafikId === 'demo-s-curve', 'map A id');
+assert(LEVELS[0].pads.length === MAP_COORDS.maps.A.padCount, 'map A pad count from grafik');
+assert(JSON.stringify(LEVELS[0].pads) === JSON.stringify(MAP_COORDS.maps.A.pads), 'map A pads from JSON');
 assert(LEVELS[1].id === 'b' && LEVELS[1].paths.length === 2, 'map B dual merge');
-assert(LEVELS[2].id === 'c' && LEVELS[2].pads.length >= 9 && LEVELS[2].pads.length <= 14, 'map C horseshoe pads');
+assert(LEVELS[1].pads.length === MAP_COORDS.maps.B.padCount, 'map B pad count from grafik');
+assert(JSON.stringify(LEVELS[1].mergePoint) === JSON.stringify(MAP_COORDS.maps.B.mergePoint), 'map B choke from JSON');
+assert(LEVELS[2].id === 'c' && LEVELS[2].grafikId === 'horseshoe', 'map C horseshoe');
+assert(LEVELS[2].pads.length === MAP_COORDS.maps.C.padCount, 'map C pad count from grafik');
+assert(JSON.stringify(LEVELS[2].pads) === JSON.stringify(MAP_COORDS.maps.C.pads), 'map C pads from JSON');
 assert(LEVELS[0].lighthouse[0] > 800, 'map A lighthouse east');
-assert(LEVELS[2].paths[0].at(-1)[1] <= LEVELS[2].lighthouse[1] + 20, 'map C path ends at lighthouse');
+assert(JSON.stringify(LEVELS[2].paths[0].at(-1)) === JSON.stringify(MAP_COORDS.maps.C.base), 'map C path ends at lighthouse');
+const diskCoords = JSON.parse(await readFile(new URL('../assets/maps-coords.json', import.meta.url), 'utf8'));
+assert(JSON.stringify(diskCoords) === JSON.stringify(MAP_COORDS), 'LEVELS source is assets/maps-coords.json');
 assert(!Object.values(TYPES).some(t => /kampaň|sektor/i.test(t.name)), 'no campaign tower names');
 
 const lossPay = anchorsFor({ won: false, wave: 1, boss: false });

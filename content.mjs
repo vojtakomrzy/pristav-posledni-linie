@@ -1,5 +1,8 @@
-export const W = 960;
-export const H = 600;
+import mapsCoords from './assets/maps-coords.json' with { type: 'json' };
+
+export const MAP_COORDS = mapsCoords;
+export const W = mapsCoords.coordinateSpace.width;
+export const H = mapsCoords.coordinateSpace.height;
 
 export const PALETTE = {
   bg: '#071e27',
@@ -56,8 +59,6 @@ export const TYPES = {
   },
 };
 
-const sx = (x, y) => [Math.round(x * 1.6), Math.round(y * 1.6)];
-
 export const ENEMIES = {
   scout1: { name: 'Scout', family: 'scout', tier: 1, role: 'Fast', hp: 34, speed: 102, size: 11, color: '#7a8f8a', bounty: 11, harm: 1, armor: 0, ring: '#b8ffd9' },
   scout2: { name: 'Scout L2', family: 'scout', tier: 2, role: 'Fast', hp: 52, speed: 108, size: 14, color: '#6d8280', bounty: 15, harm: 1, armor: 0, ring: '#b8ffd9' },
@@ -88,66 +89,62 @@ export const WAVES = [
   [...repeat('ironclad3', 4), ...repeat('scout3', 8), ...repeat('swarm3', 6), 'juggernaut'],
 ];
 
-export const LEVELS = [
-  {
-    id: 'a',
-    name: 'S-Curve',
-    area: 'MAP A · DEMO',
-    tip: 'One lane. Hold the bends.',
+function samePoint(a, b) {
+  return a && b && a[0] === b[0] && a[1] === b[1];
+}
+
+function joinPoints(...segments) {
+  const out = [];
+  for (const seg of segments) {
+    for (const p of seg) {
+      if (!samePoint(out[out.length - 1], p)) out.push(p);
+    }
+  }
+  return out;
+}
+
+function toLighthouse(path, base) {
+  return joinPoints(path, [base]);
+}
+
+const MAP_META = {
+  A: { id: 'a', name: 'S-Curve', area: 'MAP A · DEMO', tip: 'One lane. Hold the bends.', money: 360, foam: 1 },
+  B: { id: 'b', name: 'Merge Y', area: 'MAP B · MERGE', tip: 'Two inlets. Cover the choke.', money: 380, foam: 1 },
+  C: { id: 'c', name: 'Horseshoe', area: 'MAP C · HORSESHOE', tip: 'Arms watch the channel. Island holds the line.', money: 400, foam: 1 },
+};
+
+function pathsFromGrafik(spec) {
+  if (spec.lanes === 2 && spec.paths) {
+    return [
+      toLighthouse(joinPoints(spec.paths.left, spec.paths.merged), spec.base),
+      toLighthouse(joinPoints(spec.paths.right, spec.paths.merged), spec.base),
+    ];
+  }
+  return [toLighthouse(spec.path, spec.base)];
+}
+
+function levelFromGrafik(key) {
+  const spec = mapsCoords.maps[key];
+  const meta = MAP_META[key];
+  return {
+    id: meta.id,
+    grafikId: spec.id,
+    name: meta.name,
+    area: meta.area,
+    tip: meta.tip,
     waves: WAVES.length,
-    money: 360,
-    foam: 1,
-    lighthouse: [930, 168],
-    paths: [[
-      [-48, 188], [90, 198], [200, 220], [340, 275], [500, 328],
-      [640, 292], [760, 218], [880, 172], [1010, 158],
-    ]],
-    pads: [
-      sx(100, 130), sx(180, 145), sx(260, 175),
-      sx(340, 195), sx(420, 175), sx(500, 130),
-      [224, 268], [736, 236],
-    ],
-  },
-  {
-    id: 'b',
-    name: 'Merge Y',
-    area: 'MAP B · MERGE',
-    tip: 'Two inlets. Cover the choke.',
-    waves: WAVES.length,
-    money: 380,
-    foam: 1,
-    lighthouse: [930, 176],
-    paths: [
-      [[-48, 128], [150, 136], [290, 210], [448, 248], [608, 248], [770, 200], [1010, 168]],
-      [[-48, 358], [150, 344], [290, 268], [448, 248], [608, 248], [770, 200], [1010, 168]],
-    ],
-    pads: [
-      sx(90, 85), sx(90, 215), sx(180, 140),
-      sx(280, 155), sx(380, 155), sx(480, 130),
-      [224, 168], [224, 312], [368, 200], [368, 280], [688, 180],
-    ],
-  },
-  {
-    id: 'c',
-    name: 'Horseshoe',
-    area: 'MAP C · HORSESHOE',
-    tip: 'Arms watch the channel. Island holds the line.',
-    waves: WAVES.length,
-    money: 400,
-    foam: 1,
-    lighthouse: [480, 72],
-    paths: [[
-      [480, 650], [480, 540], [480, 430], [480, 320], [480, 200], [480, 80],
-    ]],
-    pads: [
-      [168, 236], [148, 392],
-      [792, 236], [812, 392],
-      [408, 318], [552, 318], [408, 448], [552, 448],
-      [480, 148],
-      [268, 318], [692, 318], [480, 252], [480, 520],
-    ],
-  },
-];
+    money: meta.money,
+    foam: meta.foam,
+    lighthouse: spec.base,
+    spawn: spec.spawn || spec.spawns?.[0],
+    mergePoint: spec.mergePoint || null,
+    islandCenter: spec.islandCenter || null,
+    paths: pathsFromGrafik(spec),
+    pads: spec.pads.map(([x, y]) => [x, y]),
+  };
+}
+
+export const LEVELS = ['A', 'B', 'C'].map(levelFromGrafik);
 
 export function wavePlan(wave, qa = false) {
   const plans = qa ? WAVES.slice(0, 2) : WAVES;
