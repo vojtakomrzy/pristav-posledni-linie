@@ -1,9 +1,10 @@
 import {
-  Defense, LEVELS, TYPES, ENEMIES, W, H, stats, wavePlan, onPath,
-  SAVE_KEY, SOUND_KEY, DEMO, META_UPGRADES, META_COST,
-  loadSave, persistSave, modsFromSave, buyMeta, applyRunPayout,
-  demoRankLocked, demoCta,
+  Defense, LEVELS, TYPES, W, H, wavePlan, nextWaveLabel,
+  SAVE_KEY, SOUND_KEY, META_UPGRADES, MAP_UNLOCK_COST,
+  loadSave, persistSave, modsFromSave, buyMeta, buyMap, applyRunPayout,
+  demoRankLocked, demoCta, mapUnlocked, metaCost,
 } from './engine.mjs';
+import { turret, renderBoard } from './draw.mjs';
 
 const $ = id => document.getElementById(id);
 const canvas = $('board');
@@ -18,20 +19,20 @@ const memoryStore = () => {
   return {
     getItem: k => (map.has(k) ? map.get(k) : null),
     setItem: (k, v) => { map.set(k, String(v)); },
+    removeItem: k => { map.delete(k); },
   };
 };
 
 let save;
-try { save = loadSave(storage); persistSave(storage, save); }
-catch {
-  save = loadSave(memoryStore());
-}
+try { save = loadSave(storage); }
+catch { save = loadSave(memoryStore()); }
 
 let game = new Defense(0, { ...modsFromSave(save), qa });
 let screen = 'hq';
 let mapIndex = 0;
 let selected = -1;
 let blueprint = null;
+let dockMode = 'build';
 let paused = false;
 let speed = 1;
 let clock = 0;
@@ -49,7 +50,7 @@ let sound = false;
 let audio = null;
 try { sound = storage.getItem(SOUND_KEY) === 'true'; } catch {}
 
-const fmt = n => Math.round(n).toLocaleString('cs-CZ');
+const fmt = n => Math.round(n).toLocaleString('en-US');
 
 function tone(freq = 440, duration = .1, volume = .025, type = 'sine', end) {
   if (!sound || !audio) return;
@@ -84,7 +85,7 @@ function persist() {
 
 function syncSound() {
   $('sound').setAttribute('aria-pressed', String(sound));
-  $('sound').setAttribute('aria-label', sound ? 'Vypnout zvuk' : 'Zapnout zvuk');
+  $('sound').setAttribute('aria-label', sound ? 'Sound off' : 'Sound on');
   $('sound').textContent = sound ? '♫' : '♪';
 }
 
@@ -97,89 +98,37 @@ $('sound').onclick = () => {
 };
 syncSound();
 
-function circle(c, x, y, r, fill, stroke, width = 1) {
-  c.beginPath();
-  c.arc(x, y, r, 0, Math.PI * 2);
-  if (fill) { c.fillStyle = fill; c.fill(); }
-  if (stroke) { c.strokeStyle = stroke; c.lineWidth = width; c.stroke(); }
-}
-
-function turret(c, x, y, type, angle = -Math.PI / 2, level = 1, scale = 1) {
-  const color = TYPES[type].color;
-  c.save();
-  c.translate(x, y);
-  c.scale(scale, scale);
-  circle(c, 0, 0, 15, '#071e27', color, 2);
-  if (type === 'cannon') {
-    c.save();
-    c.rotate(angle);
-    c.fillStyle = color;
-    c.fillRect(4, -3.5, 16, 7);
-    c.restore();
-  } else if (type === 'tesla') {
-    c.strokeStyle = color;
-    c.lineWidth = 3;
-    c.lineCap = 'round';
-    c.beginPath();
-    c.moveTo(0, 7);
-    c.lineTo(0, -13);
-    c.stroke();
-    c.beginPath();
-    c.arc(0, -13, 8, Math.PI * 0.18, Math.PI * 0.82);
-    c.stroke();
-  } else if (type === 'frost') {
-    c.beginPath();
-    c.moveTo(0, -14);
-    c.lineTo(10, 0);
-    c.lineTo(0, 14);
-    c.lineTo(-10, 0);
-    c.closePath();
-    c.fillStyle = color;
-    c.fill();
-  } else if (type === 'mortar') {
-    c.save();
-    c.rotate(angle - 0.5);
-    c.fillStyle = color;
-    c.fillRect(2, -3.5, 14, 7);
-    c.restore();
-  }
-  for (let i = 0; i < level; i++) circle(c, (i - (level - 1) / 2) * 7, 22, 2.1, color);
-  c.restore();
-}
-
-function iconSvg(kind) {
-  if (kind === 'coins') {
-    return `<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><circle cx="8.5" cy="16.5" r="4.2" fill="#ffd192" stroke="#071e27" stroke-width="1.2"/><circle cx="15.5" cy="16.5" r="4.2" fill="#ffd192" stroke="#071e27" stroke-width="1.2"/><circle cx="12" cy="10" r="4.2" fill="#ffd192" stroke="#071e27" stroke-width="1.2"/></svg>`;
-  }
-  if (kind === 'lighthouse') {
-    return `<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path d="M12 3.2 19 21 H5 Z" fill="#b8ffd9" stroke="#071e27" stroke-width="1.2" stroke-linejoin="round"/><circle cx="12" cy="8.2" r="2" fill="#ffd192"/></svg>`;
-  }
-  return `<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path d="M12 2.8 20 7.2 v6.2 c0 4-3.4 7.4-8 8.8 C7.4 20.8 4 17.4 4 13.4 V7.2 Z" fill="#b8ffd9" stroke="#071e27" stroke-width="1.2" stroke-linejoin="round"/><circle cx="9.2" cy="10.2" r="1.35" fill="#071e27"/><circle cx="14.8" cy="14.6" r="1.35" fill="#071e27"/><path d="M14.6 9.4 9.4 15.4" stroke="#071e27" stroke-width="1.4" stroke-linecap="round"/></svg>`;
-}
-
 function hideScreens() {
   $('hq').classList.add('hidden');
   $('battle').classList.add('hidden');
   $('result').classList.add('hidden');
 }
 
+function setNote(id, text) {
+  if (!text) {
+    $(id).classList.add('hidden');
+    $(id).textContent = '';
+    return;
+  }
+  $(id).classList.remove('hidden');
+  $(id).textContent = text;
+}
+
 function drawHq() {
-  $('hq-remnants').textContent = fmt(save.remnants);
+  $('hq-anchors').textContent = fmt(save.anchors);
   $('demo-cta').classList.toggle('hidden', !demoCta(save.runs));
-  if (save.last) {
-    $('last-run').classList.remove('hidden');
-    $('last-run').textContent = `${save.last.won ? 'Výhra' : 'Ztráta'} · +${save.last.gain} zbytků`;
-  } else $('last-run').classList.add('hidden');
+  setNote('last-run', save.last ? `${save.last.won ? 'Held' : 'Broken'} · +${save.last.gain} anchors` : '');
+  setNote('hq-note', '');
 
   $('upgrades').innerHTML = META_UPGRADES.map(u => {
     const rank = save.upgrades[u.id];
     const maxed = rank >= u.max;
     const locked = !maxed && demoRankLocked(rank);
-    const cost = META_COST[rank];
-    const can = !maxed && !locked && save.remnants >= cost;
-    const label = maxed ? 'Maximum' : locked ? 'Plná hra brzy' : `Koupit · ${cost}`;
+    const cost = metaCost(u.id, rank);
+    const can = !maxed && !locked && save.anchors >= cost;
+    const label = maxed ? 'Max' : locked ? 'Full game coming' : `Buy · ${cost}`;
     return `<article class="upgrade-card ${locked ? 'locked' : ''}">
-      <div class="upgrade-icon">${iconSvg(u.icon)}</div>
+      <div class="upgrade-icon"><img src="./assets/meta/${u.icon}.svg" width="24" height="24" alt=""></div>
       <span class="rank">${rank} / ${u.max}</span>
       <h3>${u.name}</h3>
       <p>${u.desc}</p>
@@ -196,15 +145,42 @@ function drawHq() {
     };
   });
 
-  $('maps').innerHTML = LEVELS.map((level, i) => `
-    <button class="map-pick ${i === mapIndex ? 'selected' : ''}" data-map="${i}">
+  $('maps').innerHTML = LEVELS.map((level, i) => {
+    const open = mapUnlocked(save, level.id);
+    const selectedMap = i === mapIndex && open;
+    const waves = qa ? 2 : level.waves;
+    const lockNote = open ? `${waves} waves · ${level.tip}` : `Locked · ${MAP_UNLOCK_COST} anchors or clear`;
+    return `<button class="map-pick ${selectedMap ? 'selected' : ''} ${open ? '' : 'locked'}" data-map="${i}">
       <span class="eyebrow">${level.area}</span>
       <strong>${level.name}</strong>
-      <small>${qa ? 2 : level.waves} vln</small>
-    </button>`).join('');
+      <small>${lockNote}</small>
+      ${open ? '' : `<span class="primary unlock" data-unlock="${level.id}">Unlock · ${MAP_UNLOCK_COST}</span>`}
+    </button>`;
+  }).join('');
   document.querySelectorAll('[data-map]').forEach(b => {
-    b.onclick = () => { mapIndex = Number(b.dataset.map); drawHq(); };
+    b.onclick = e => {
+      if (e.target.closest('[data-unlock]')) return;
+      const i = Number(b.dataset.map);
+      if (!mapUnlocked(save, LEVELS[i].id)) return;
+      mapIndex = i;
+      drawHq();
+    };
   });
+  document.querySelectorAll('[data-unlock]').forEach(b => {
+    b.onclick = e => {
+      e.stopPropagation();
+      if (!buyMap(save, b.dataset.unlock)) {
+        setNote('hq-note', `Need ${MAP_UNLOCK_COST} anchors, or clear the previous map.`);
+        return;
+      }
+      persist();
+      mapIndex = LEVELS.findIndex(l => l.id === b.dataset.unlock);
+      drawHq();
+      tone(520, .12, .035);
+    };
+  });
+  if (!mapUnlocked(save, LEVELS[mapIndex]?.id)) mapIndex = 0;
+  $('start-run').disabled = !mapUnlocked(save, LEVELS[mapIndex].id);
 }
 
 function showHq() {
@@ -219,11 +195,13 @@ function showHq() {
 
 function startRun(index = mapIndex) {
   closeModal();
+  if (!mapUnlocked(save, LEVELS[index]?.id)) index = 0;
   mapIndex = index;
   game = new Defense(index, { ...modsFromSave(save), qa });
   screen = 'battle';
   selected = -1;
   blueprint = null;
+  dockMode = 'build';
   paused = false;
   speed = 1;
   effects = [];
@@ -231,10 +209,8 @@ function startRun(index = mapIndex) {
   readyAudio();
   hideScreens();
   $('battle').classList.remove('hidden');
-  $('sector-label').textContent = game.level.area;
-  $('mission-name').textContent = game.level.name;
   $('speed').textContent = '1×';
-  notice('Postav věže. Pak spusť první vlnu.', 3.4);
+  notice('Build. Then start the first wave.', 3.4);
   resize();
   syncUI();
   canvas.focus({ preventScroll: true });
@@ -246,9 +222,9 @@ function showResult(won, gain) {
   paused = false;
   hideScreens();
   $('result').classList.remove('hidden');
-  $('result-kicker').textContent = won ? 'UDRŽENO' : 'PROLOMENO';
-  $('result-title').textContent = won ? 'Maják stále svítí.' : 'Maják zhasl.';
-  $('result-remnants').textContent = `+${gain}`;
+  $('result-kicker').textContent = won ? 'HELD' : 'BROKEN';
+  $('result-title').textContent = won ? 'The lantern held.' : 'The lantern went dark.';
+  $('result-anchors').textContent = `+${gain}`;
   $('result-kills').textContent = fmt(game.kills);
   $('result-wave').textContent = `${game.wave} / ${game.level.waves}`;
   $('result-lives').textContent = `${game.lives} / ${game.maxLives}`;
@@ -291,10 +267,10 @@ function resume() {
 function pause() {
   if (screen !== 'battle' || ['won', 'lost'].includes(game.state)) return;
   paused = true;
-  modal('PAUZA', 'Chvíle klidu.', `<p>Obrana počká. Věže drží pozice.</p>`, [
-    ['Pokračovat →', resume],
-    ['Začít znovu', () => startRun(game.index), true],
-    ['Velitelství', showHq, true],
+  modal('PAUSE', 'Hold.', `<p>Towers keep the line.</p>`, [
+    ['Resume →', resume],
+    ['Redeploy', () => startRun(game.index), true],
+    ['Headquarters', showHq, true],
   ]);
   syncUI();
 }
@@ -310,12 +286,12 @@ $('to-hq').onclick = showHq;
 $('help').onclick = () => {
   const wasPaused = paused;
   if (screen === 'battle') paused = true;
-  modal('POLNÍ PŘÍRUČKA', 'Jak udržet přístav.', `<ol class="help-list">
-    <li><b>Stavěj na plošinách.</b> Čtyři věže: Kanón, Tesla, Kryo, Minomet.</li>
-    <li><b>Kredity</b> kupují věže v tomhle běhu. <b>Zbytky</b> zůstanou na velitelství.</li>
-    <li><b>Vyhraj nebo padni.</b> Utrať zbytky a vyraž znovu.</li>
-    <li>1–4 věž · šipky místo · Enter stavět · U vylepšit · mezerník vlna · P pauza</li>
-  </ol>`, [['Rozumím →', () => {
+  modal('FIELD NOTES', 'Hold the harbor.', `<ol class="help-list">
+    <li><b>Build on pads.</b> Four roles: Cannon, Tesla, Cryo, Mortar.</li>
+    <li><b>Credits</b> buy towers this run. <b>Anchors</b> stay at Headquarters.</li>
+    <li><b>Die or hold.</b> Spend anchors, deploy again.</li>
+    <li>1–4 tower · arrows pad · Enter build · U upgrade · space wave · P pause</li>
+  </ol>`, [['Got it →', () => {
     closeModal();
     if (wasPaused) pause();
     else {
@@ -336,8 +312,8 @@ function endRun(won) {
   const gain = applyRunPayout(save, {
     won,
     wave: game.wave,
-    kills: game.kills,
-    lives: game.lives,
+    boss: game.bossDown,
+    mapId: game.level.id,
   });
   persist();
   if (won) [440, 554, 660, 880].forEach((f, i) => setTimeout(() => tone(f, .4, .06), i * 110));
@@ -347,22 +323,39 @@ function endRun(won) {
 
 function makeTowerCards() {
   $('tower-options').innerHTML = Object.entries(TYPES).map(([type, t], i) => `
-    <button class="tower-card" data-tower="${type}" style="--accent:${t.color}" aria-label="${t.name}, ${t.tag}">
-      <canvas width="100" height="90" aria-hidden="true"></canvas>
-      <span class="tower-cost"></span>
+    <button class="tower-card" data-tower="${type}" style="--accent:${t.color}" aria-label="${t.name}, ${t.role}">
+      <canvas width="96" height="96" aria-hidden="true"></canvas>
       <strong>${t.name}</strong>
-      <small>${t.tag}</small>
+      <span class="tower-cost"></span>
       <span class="tower-key">${i + 1}</span>
     </button>`).join('');
   document.querySelectorAll('[data-tower]').forEach(b => {
-    turret(b.querySelector('canvas').getContext('2d'), 46, 41, b.dataset.tower, -.55, 1, 1.2);
+    turret(b.querySelector('canvas').getContext('2d'), 48, 48, b.dataset.tower, -.55, 1, 1.35);
     b.onclick = () => chooseType(b.dataset.tower);
   });
 }
 
+function setDockMode(mode) {
+  dockMode = mode;
+  if (mode !== 'build') blueprint = null;
+  $('mode-build').classList.toggle('selected', mode === 'build');
+  $('mode-upgrade').classList.toggle('selected', mode === 'upgrade');
+  $('mode-sell').classList.toggle('selected', mode === 'sell');
+  $('mode-build').setAttribute('aria-pressed', String(mode === 'build'));
+  $('mode-upgrade').setAttribute('aria-pressed', String(mode === 'upgrade'));
+  $('mode-sell').setAttribute('aria-pressed', String(mode === 'sell'));
+  syncUI();
+}
+
+$('mode-build').onclick = () => { if (!paused) setDockMode('build'); };
+$('mode-upgrade').onclick = () => { if (!paused) setDockMode('upgrade'); };
+$('mode-sell').onclick = () => { if (!paused) setDockMode('sell'); };
+
 function chooseType(type) {
   if (paused || !['build', 'wave'].includes(game.state)) return;
   readyAudio();
+  if (!game.allowed(type)) { notice('Unlock Mortar at Headquarters.', 2.2, true); return; }
+  setDockMode('build');
   if (selected >= 0 && !game.towerAt(selected)) {
     if (game.build(selected, type)) {
       blueprint = null;
@@ -371,7 +364,7 @@ function chooseType(type) {
       canvas.focus({ preventScroll: true });
       return;
     }
-    notice('Na tuto věž chybí kredity.', 2, true);
+    notice('Need more credits.', 2, true);
   }
   blueprint = type;
   selected = -1;
@@ -382,14 +375,33 @@ function chooseType(type) {
 function selectPad(i) {
   if (paused || !['build', 'wave'].includes(game.state)) return;
   readyAudio();
-  if (blueprint && !game.towerAt(i)) {
+  const tower = game.towerAt(i);
+  if (dockMode === 'upgrade') {
+    selected = i;
+    blueprint = null;
+    if (tower) {
+      if (game.upgrade(i)) { tone(660, .17, .045); events(); }
+      else if (tower.level >= 3) notice('Maxed.', 1.6);
+      else notice('Need more credits.', 2, true);
+    }
+    syncUI();
+    return;
+  }
+  if (dockMode === 'sell') {
+    if (tower && game.sell(i)) { tone(290, .12); selected = -1; }
+    else selected = i;
+    blueprint = null;
+    syncUI();
+    return;
+  }
+  if (blueprint && !tower) {
     if (game.build(i, blueprint)) {
       selected = i;
       blueprint = null;
       events();
     } else {
       selected = i;
-      notice('Nejdřív potřebuješ více kreditů.', 2, true);
+      notice('Need more credits.', 2, true);
     }
   } else {
     selected = i;
@@ -404,20 +416,10 @@ function clearSelection() {
   syncUI();
 }
 
-$('cancel-selection').onclick = clearSelection;
-$('upgrade').onclick = () => {
-  if (paused) return;
-  if (game.upgrade(selected)) { tone(660, .17, .045); events(); syncUI(); }
-  else notice('Na vylepšení chybí kredity.', 2, true);
-};
-$('sell').onclick = () => {
-  if (paused) return;
-  if (game.sell(selected)) { tone(290, .12); clearSelection(); }
-};
 $('send-wave').onclick = () => {
   if (paused) return;
   readyAudio();
-  if (!game.towers.length) { notice('Nejdřív postav alespoň jednu věž.', 2.2, true); return; }
+  if (!game.towers.length) { notice('Build at least one tower.', 2.2, true); return; }
   if (game.startWave()) { events(); syncUI(); canvas.focus({ preventScroll: true }); }
 };
 $('speed').onclick = () => {
@@ -425,59 +427,35 @@ $('speed').onclick = () => {
   $('speed').textContent = speed + '×';
 };
 
-function waveText(plan) {
-  const counts = {};
-  for (const t of plan) counts[t] = (counts[t] || 0) + 1;
-  return Object.entries(counts).map(([t, n]) => `${n}× ${ENEMIES[t].name}`).join(' · ');
-}
-
 function syncUI() {
   if (screen !== 'battle') return;
-  $('money').textContent = fmt(game.money);
+  $('credits').textContent = fmt(game.money);
   $('lives').textContent = game.lives;
   $('lives-wrap').classList.toggle('low-health', game.lives < Math.ceil(game.maxLives * .4));
   $('wave').textContent = `${game.wave}/${game.level.waves}`;
   $('wave-fill').style.width = `${Math.min(1, game.wave / game.level.waves) * 100}%`;
-  $('board-state').textContent = paused ? 'PAUZA' : game.state === 'wave' ? 'FLOTILA NA DOHLED' : game.state === 'build' ? 'PŘÍPRAVA' : game.state === 'won' ? 'UDRŽENO' : 'PROLOMENO';
+  const chip = paused ? 'PAUSE' : dockMode === 'upgrade' ? 'UPGRADING' : dockMode === 'sell' ? 'SELLING' : 'BUILDING';
+  $('mode-chip').textContent = chip;
   $('send-wave').disabled = game.state !== 'build' || paused;
-  $('send-wave').innerHTML = game.state === 'wave' ? 'Vlna probíhá' : game.state === 'won' ? 'Hotovo' : 'Spustit vlnu <span>→</span>';
-  $('next-label').textContent = game.state === 'wave' ? 'ZBÝVÁ ZASTAVIT' : 'PŘÍŠTÍ VLNA';
-  if (game.state === 'wave') $('next-enemies').textContent = `${game.enemies.length + game.queue.length} lodí`;
-  else if (game.state === 'build') $('next-enemies').textContent = waveText(wavePlan(game.index, game.wave + 1, qa));
-  else $('next-enemies').textContent = '—';
-
-  document.querySelectorAll('[data-tower]').forEach(b => {
-    const cost = game.towerCost(b.dataset.tower);
-    b.querySelector('.tower-cost').textContent = cost;
-    b.classList.toggle('selected', blueprint === b.dataset.tower);
-    b.classList.toggle('unaffordable', game.money < cost);
-    b.setAttribute('aria-pressed', String(blueprint === b.dataset.tower));
+  $('send-wave').textContent = game.state === 'wave' ? 'WAVE LIVE' : game.state === 'won' ? 'HELD' : 'START WAVE';
+  $('next-enemies').textContent = nextWaveLabel({
+    radar: game.mods.radar,
+    state: game.state,
+    plan: wavePlan(game.wave + 1, qa),
+    hulls: game.enemies.length + game.queue.length,
   });
 
-  const t = game.towerAt(selected);
-  const type = t?.type || blueprint;
-  const s = type ? stats(t || { type, level: 1 }) : null;
-  $('cancel-selection').classList.toggle('hidden', selected < 0 && !blueprint);
-  $('tower-stats').classList.toggle('hidden', !s);
-  $('upgrade-actions').classList.toggle('hidden', !t);
-  if (s) {
-    $('selection-label').textContent = t ? `VĚŽ / ${t.level} ZE 3` : 'PŘIPRAVENO';
-    $('selection-name').textContent = `${s.name} · ${s.tag}`;
-    $('selection-desc').textContent = s.desc;
-    const mid = `<div><b>${Math.round(s.damage)}</b><span>POŠKOZENÍ</span></div>`;
-    $('tower-stats').innerHTML = `${mid}<div><b>${s.range} m</b><span>DOSTŘEL</span></div><div><b>${s.rate.toFixed(1)} s</b><span>INTERVAL</span></div>`;
-  } else {
-    $('selection-label').textContent = selected >= 0 ? 'PLOŠINA' : 'RADA';
-    $('selection-name').textContent = selected >= 0 ? `Plošina ${selected + 1}` : 'Zatáčky.';
-    $('selection-desc').textContent = selected >= 0 ? 'Vyber typ věže.' : game.level.tip;
-  }
-  if (t) {
-    $('upgrade').textContent = t.level >= 3 ? 'Maximum' : `Vylepšit · ${game.upgradePrice(t)}`;
-    $('upgrade').disabled = t.level >= 3 || game.money < game.upgradePrice(t) || paused;
-    $('sell').textContent = `Prodat · ${Math.floor(t.invested * .7)} kreditů`;
-    $('sell').disabled = paused;
-  }
-  $('build-hint').textContent = blueprint ? `${TYPES[blueprint].name}: klikni na svítící místo.` : 'Vyber věž a pak svítící místo.';
+  document.querySelectorAll('[data-tower]').forEach(b => {
+    const type = b.dataset.tower;
+    const open = game.allowed(type);
+    const cost = game.towerCost(type);
+    b.querySelector('.tower-cost').textContent = open ? cost : '—';
+    b.classList.toggle('selected', blueprint === type);
+    b.classList.toggle('unaffordable', open && game.money < cost);
+    b.classList.toggle('locked', !open);
+    b.disabled = !open || dockMode !== 'build' || paused;
+    b.setAttribute('aria-pressed', String(blueprint === type));
+  });
 }
 
 function events() {
@@ -485,10 +463,14 @@ function events() {
     if (e.type === 'build') { effects.push({ ...e, age: 0, life: .55 }); tone(430, .1, .035); }
     if (e.type === 'kill') { effects.push({ ...e, age: 0, life: .55 }); if (game.kills % 3 === 0) tone(75, .12, .025, 'triangle', 35); }
     if (e.type === 'blast') { effects.push({ ...e, age: 0, life: .4 }); tone(58, .18, .04, 'triangle', 30); }
-    if (e.type === 'beam' || e.type === 'aura') effects.push({ ...e, age: 0, life: e.frost ? .2 : .18 });
-    if (e.type === 'leak') { effects.push({ ...e, age: 0, life: .65 }); notice(`Loď proplula! Maják −${e.harm}`, 1.5, true); tone(140, .3, .05, 'sawtooth', 75); }
-    if (e.type === 'wave') { notice(`Vlna ${e.wave} / ${game.level.waves} připlouvá`, 2); tone(330, .2, .04); }
-    if (e.type === 'clear') { notice(`Čistá voda. Bonus +${e.bonus} kreditů.`, 2.4); tone(660, .25, .04); }
+    if (e.type === 'beam') effects.push({ ...e, age: 0, life: e.slow ? .2 : .18 });
+    if (e.type === 'leak') { effects.push({ ...e, age: 0, life: .65 }); notice(`Leak −${e.harm}`, 1.5, true); tone(140, .3, .05, 'sawtooth', 75); }
+    if (e.type === 'wave') { notice(`Wave ${e.wave} / ${game.level.waves}`, 2); tone(330, .2, .04); }
+    if (e.type === 'clear') {
+      const extra = e.interest ? ` +${e.interest} interest.` : '';
+      notice(`Clear. +${e.bonus} credits.${extra}`, 2.4);
+      tone(660, .25, .04);
+    }
     if (e.type === 'end') endRun(e.won);
   }
   game.events.length = 0;
@@ -565,7 +547,8 @@ window.addEventListener('keydown', e => {
   if (['1', '2', '3', '4'].includes(key)) { e.preventDefault(); chooseType(typeKeys[Number(key) - 1]); }
   else if (key === 'Enter' && e.target === canvas && selected >= 0) { e.preventDefault(); selectPad(selected); }
   else if ((key === ' ' || key === 'Space') && e.target === canvas) { e.preventDefault(); $('send-wave').click(); }
-  else if (key.toLowerCase() === 'u' && selected >= 0) { e.preventDefault(); $('upgrade').click(); }
+  else if (key.toLowerCase() === 'u') { e.preventDefault(); setDockMode('upgrade'); if (selected >= 0) selectPad(selected); }
+  else if (key.toLowerCase() === 'b') { e.preventDefault(); setDockMode('build'); }
   else if (key.toLowerCase() === 'p') { e.preventDefault(); pause(); }
   else if (key === 'Escape') {
     e.preventDefault();
@@ -580,159 +563,6 @@ document.addEventListener('visibilitychange', () => {
 window.addEventListener('blur', () => {
   if (screen === 'battle' && game.state === 'wave' && !paused) pause();
 });
-
-function drawShip(e) {
-  ctx.save();
-  ctx.translate(e.x, e.y);
-  ctx.rotate(e.angle);
-  ctx.beginPath();
-  if (e.type === 'tank') {
-    ctx.moveTo(e.size * 1.3, 0);
-    ctx.lineTo(e.size * .4, -e.size);
-    ctx.lineTo(-e.size, -e.size * .7);
-    ctx.lineTo(-e.size, e.size * .7);
-    ctx.lineTo(e.size * .4, e.size);
-  } else if (e.type === 'fast') {
-    ctx.moveTo(e.size * 1.8, 0);
-    ctx.lineTo(-e.size, -e.size * .55);
-    ctx.lineTo(-e.size * .6, 0);
-    ctx.lineTo(-e.size, e.size * .55);
-  } else {
-    ctx.moveTo(e.size * 1.4, 0);
-    ctx.lineTo(-e.size, -e.size * .7);
-    ctx.lineTo(-e.size * .7, 0);
-    ctx.lineTo(-e.size, e.size * .7);
-  }
-  ctx.closePath();
-  ctx.fillStyle = e.flash > 0 ? '#fff0df' : e.color;
-  ctx.fill();
-  ctx.strokeStyle = e.armor ? '#ffd6e5' : '#ffffff40';
-  ctx.lineWidth = e.armor ? 2 : 1;
-  ctx.stroke();
-  ctx.restore();
-}
-
-function draw() {
-  ctx.clearRect(0, 0, viewW, viewH);
-  ctx.save();
-  ctx.translate(mapX, mapY);
-  ctx.scale(mapScale, mapScale);
-
-  for (const points of game.level.paths) {
-    ctx.beginPath();
-    points.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y));
-    ctx.lineJoin = 'round';
-    ctx.lineCap = 'round';
-    ctx.strokeStyle = '#05171d';
-    ctx.lineWidth = 36;
-    ctx.stroke();
-    ctx.strokeStyle = '#ffd19255';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([6, 10]);
-    ctx.lineDashOffset = reduced ? 0 : -clock * 8;
-    ctx.stroke();
-    ctx.setLineDash([]);
-  }
-
-  const active = selected >= 0 ? selected : hover;
-  const t = game.towerAt(active);
-  const type = t?.type || blueprint;
-  if (active >= 0 && type) {
-    const [x, y] = game.level.pads[active];
-    const s = stats(t || { type, level: 1 });
-    circle(ctx, x, y, s.range, s.color + '10', s.color + '55', 1);
-  }
-
-  game.level.pads.forEach(([x, y], i) => {
-    const tower = game.towerAt(i);
-    const isSelected = i === selected || i === hover;
-    circle(ctx, x, y, 24, '#071e27', isSelected ? '#b8ffd9' : tower ? '#7eab9266' : '#a2d2b570', isSelected ? 2 : 1);
-    if (!tower) {
-      ctx.strokeStyle = isSelected ? '#b8ffd9' : '#99ccb966';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(x - 6, y);
-      ctx.lineTo(x + 6, y);
-      ctx.moveTo(x, y - 6);
-      ctx.lineTo(x, y + 6);
-      ctx.stroke();
-    }
-  });
-
-  const baseX = 931;
-  const baseY = 300;
-  ctx.beginPath();
-  ctx.moveTo(baseX, baseY - 22);
-  ctx.lineTo(baseX + 16, baseY + 20);
-  ctx.lineTo(baseX - 16, baseY + 20);
-  ctx.closePath();
-  ctx.fillStyle = '#b8ffd9';
-  ctx.fill();
-  ctx.strokeStyle = '#071e27';
-  ctx.lineWidth = 1.6;
-  ctx.stroke();
-  circle(ctx, baseX, baseY - 8, 4.2, game.lives < Math.ceil(game.maxLives * .4) ? '#ff8094' : '#ffd192');
-
-  for (const tw of game.towers) {
-    turret(ctx, tw.x, tw.y, tw.type, tw.angle, tw.level);
-    if (tw.cool > stats(tw).rate - .07) {
-      circle(ctx, tw.x + Math.cos(tw.angle) * 22, tw.y + Math.sin(tw.angle) * 22, 4, TYPES[tw.type].color);
-    }
-  }
-
-  for (const e of game.enemies) {
-    drawShip(e);
-    if (e.slow > 0) circle(ctx, e.x, e.y, e.size + 7, null, '#e2eee888', 2);
-    if (e.hp < e.maxHp || e.type === 'tank') {
-      const w = e.type === 'tank' ? 36 : 26;
-      ctx.fillStyle = '#071e27';
-      ctx.fillRect(e.x - w / 2, e.y - e.size - 12, w, 3);
-      ctx.fillStyle = e.slow > 0 ? '#e2eee8' : e.type === 'tank' ? '#ff8094' : '#ffd192';
-      ctx.fillRect(e.x - w / 2, e.y - e.size - 12, w * Math.max(0, e.hp / e.maxHp), 3);
-    }
-  }
-
-  for (const p of game.projectiles) {
-    const q = Math.min(1, p.age / p.duration);
-    const x = p.ox + (p.tx - p.ox) * q;
-    const y = p.oy + (p.ty - p.oy) * q - (p.type === 'mortar' ? Math.sin(q * Math.PI) * 60 : 0);
-    ctx.beginPath();
-    ctx.moveTo(x - (p.tx - p.ox) * .03, y - (p.ty - p.oy) * .03);
-    ctx.lineTo(x, y);
-    ctx.strokeStyle = p.color;
-    ctx.lineWidth = p.type === 'mortar' ? 4 : 2;
-    ctx.stroke();
-    circle(ctx, x, y, p.type === 'mortar' ? 4 : 2.4, '#fff0d2');
-  }
-
-  for (const e of effects) {
-    const q = e.age / e.life;
-    ctx.globalAlpha = 1 - q;
-    if (e.type === 'beam') {
-      ctx.beginPath();
-      ctx.moveTo(e.x, e.y);
-      ctx.lineTo(e.tx, e.ty);
-      ctx.strokeStyle = e.color;
-      ctx.lineWidth = 2;
-      ctx.stroke();
-    } else if (e.type === 'aura') {
-      circle(ctx, e.x, e.y, e.range * (0.2 + q * 0.15), null, e.color, 1.5);
-    } else if (e.type === 'blast') {
-      circle(ctx, e.x, e.y, 65 * q, null, e.color, 2);
-    } else if (e.type === 'build') {
-      circle(ctx, e.x, e.y, 22 + q * 22, null, e.color, 2);
-    } else if (e.type === 'leak') {
-      circle(ctx, e.x, e.y, 14 + q * 50, null, '#ff8094', 3);
-    } else if (e.type === 'kill') {
-      ctx.fillStyle = '#ffd192';
-      ctx.font = 'bold 12px "DM Sans",sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('+' + e.bounty, e.x, e.y - 12 - q * 20);
-    }
-    ctx.globalAlpha = 1;
-  }
-  ctx.restore();
-}
 
 function frame(ms) {
   const dt = Math.min((ms - last) / 1000 || 0, .05);
@@ -752,7 +582,9 @@ function frame(ms) {
     }
     uiClock += dt;
     if (uiClock > .15) { syncUI(); uiClock = 0; }
-    draw();
+    renderBoard(ctx, game, { viewW, viewH, mapX, mapY, mapScale, clock, reduced }, {
+      selected, hover, blueprint, dockMode, effects,
+    });
   }
   requestAnimationFrame(frame);
 }
