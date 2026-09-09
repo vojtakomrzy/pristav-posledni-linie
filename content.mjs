@@ -1,4 +1,4 @@
-import mapsCoords from './assets/maps-coords.json' with { type: 'json' };
+import mapsCoords from './maps-coords.mjs';
 
 export const MAP_COORDS = mapsCoords;
 export const W = mapsCoords.coordinateSpace.width;
