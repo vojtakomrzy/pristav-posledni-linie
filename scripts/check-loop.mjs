@@ -15,13 +15,13 @@ function memory() {
   return {
     getItem: k => (map.has(k) ? map.get(k) : null),
     setItem: (k, v) => { map.set(k, String(v)); },
+    removeItem: k => { map.delete(k); },
   };
 }
 
 function pump(game, seconds, step = 1 / 60) {
-  const end = seconds;
   let t = 0;
-  while (t < end && ['build', 'wave'].includes(game.state)) {
+  while (t < seconds && ['build', 'wave'].includes(game.state)) {
     game.step(step);
     t += step;
   }
@@ -29,11 +29,12 @@ function pump(game, seconds, step = 1 / 60) {
 
 assert(TYPES.cannon.role === 'Single', 'cannon is single');
 assert(TYPES.mortar.role === 'AOE', 'mortar is aoe');
-assert(TYPES.frost.role === 'Slow', 'frost is slow');
+assert(TYPES.cryo.role === 'Slow', 'cryo is slow');
 assert(TYPES.tesla.role === 'Support', 'tesla is support');
+assert(!TYPES.frost, 'no leftover frost type key');
 assert(TYPES.cannon.color === '#ffd192', 'cannon accent');
 assert(TYPES.tesla.color === '#7fd4ff', 'tesla accent');
-assert(TYPES.frost.color === '#8ecbff', 'cryo accent');
+assert(TYPES.cryo.color === '#8ecbff', 'cryo accent');
 assert(TYPES.mortar.color === '#c4a574', 'mortar accent');
 assert(META_UPGRADES.map(u => u.id).join() === 'gold,wall,arsenal,interest,radar', 'designer shop ids');
 assert(metaCost('gold', 0) === 25 && metaCost('gold', 1) === 55 && metaCost('gold', 2) === 95, 'starting gold costs');
@@ -50,6 +51,7 @@ assert(LEVELS[0].id === 'a' && LEVELS[0].pads.length >= 6 && LEVELS[0].pads.leng
 assert(LEVELS[1].id === 'b' && LEVELS[1].paths.length === 2, 'map B dual merge');
 assert(LEVELS[2].id === 'c' && LEVELS[2].pads.length >= 9 && LEVELS[2].pads.length <= 14, 'map C horseshoe pads');
 assert(LEVELS[0].lighthouse[0] > 800, 'map A lighthouse east');
+assert(LEVELS[2].paths[0].at(-1)[1] <= LEVELS[2].lighthouse[1] + 20, 'map C path ends at lighthouse');
 assert(!Object.values(TYPES).some(t => /kampaň|sektor/i.test(t.name)), 'no campaign tower names');
 
 const lossPay = anchorsFor({ won: false, wave: 1, boss: false });
@@ -61,9 +63,11 @@ assert(capped === 100, `soft cap 100, got ${capped}`);
 
 let save = blankSave();
 assert(save.anchors === 0 && save.unlockedMaps.includes('a'), 'map A free');
+assert(!('remnants' in save), 'canonical save has no remnants field');
 assert(!mapUnlocked(save, 'b') && !mapUnlocked(save, 'c'), 'B/C locked');
 const r1 = applyRunPayout(save, { won: false, wave: 3, kills: 12, lives: 0, mapId: 'a' });
 assert(save.runs === 1 && save.anchors === r1 && r1 === 6, 'run 1 anchors stored');
+assert(!('kills' in save.last) && !('lives' in save.last), 'last run drops superseded combat keys');
 save.anchors += 25;
 assert(buyMeta(save, 'gold'), 'can buy starting gold rank 1');
 assert(save.upgrades.gold === 1, 'gold rank 1');
@@ -88,6 +92,8 @@ assert(!buyMap(save, 'c'), 'cannot buy twice');
 
 const store = memory();
 persistSave(store, save);
+const stored = JSON.parse(store.getItem(SAVE_KEY));
+assert(!('remnants' in stored) && !stored.upgrades.chest, 'persisted JSON is anchors-only');
 const loaded = loadSave(store);
 assert(loaded.anchors === save.anchors, 'anchors persist');
 assert(loaded.upgrades.gold === save.upgrades.gold, 'upgrades persist');
@@ -101,10 +107,21 @@ const clamped = parseSave(tamper);
 assert(clamped.upgrades.gold === DEMO.rankCap, 'loaded meta clamped to demo cap');
 
 const migrated = parseSave({ remnants: 40, upgrades: { chest: 1 }, runs: 2 });
-assert(migrated.anchors === 40, 'legacy remnants become anchors');
-assert(migrated.upgrades.gold === 1, 'legacy chest becomes starting gold');
+assert(migrated.anchors === 40, 'one-shot v1 bank becomes anchors');
+assert(migrated.upgrades.gold === 1, 'one-shot v1 chest becomes starting gold');
+assert(!('remnants' in migrated), 'migrated object is not dual-currency');
 
-const mods = modsFromSave({ upgrades: { gold: 1, wall: 1, arsenal: 1, interest: 1, radar: 1 }, unlockedTowers: ['cannon', 'tesla', 'frost', 'mortar'] });
+const legacyStore = memory();
+legacyStore.setItem('pristav-linie-v1', JSON.stringify({ remnants: 12, runs: 1, upgrades: { chest: 1 } }));
+const fromOld = loadSave(legacyStore);
+assert(fromOld.anchors === 12 && fromOld.upgrades.gold === 1, 'loadSave imports old key once');
+assert(!legacyStore.getItem('pristav-linie-v1'), 'old save key is removed after migrate');
+assert(legacyStore.getItem(SAVE_KEY), 'canonical key written after migrate');
+
+const frostListed = parseSave({ unlockedTowers: ['cannon', 'frost', 'mortar'] });
+assert(frostListed.unlockedTowers.includes('cryo') && !frostListed.unlockedTowers.includes('frost'), 'frost tower id maps to cryo');
+
+const mods = modsFromSave({ upgrades: { gold: 1, wall: 1, arsenal: 1, interest: 1, radar: 1 }, unlockedTowers: ['cannon', 'tesla', 'cryo', 'mortar'] });
 const g = new Defense(0, mods);
 assert(g.money === LEVELS[0].money + 50, 'starting gold adds credits not anchors');
 assert(g.maxLives === 23, 'dock wall adds lives');
@@ -120,12 +137,12 @@ assert(!locked.build(1, 'mortar'), 'cannot build locked mortar');
 const combat = new Defense(0, { money: 500 });
 assert(combat.build(0, 'cannon'), 'build cannon');
 assert(combat.build(1, 'mortar'), 'build mortar');
-assert(combat.build(2, 'frost'), 'build frost');
+assert(combat.build(2, 'cryo'), 'build cryo');
 assert(combat.build(3, 'tesla'), 'build tesla');
 assert(!combat.build(0, 'cannon'), 'no double build');
 assert(combat.startWave(), 'start wave 1');
 pump(combat, 25);
-assert(combat.kills > 0, `cannon/mortar/frost sink hulls, kills=${combat.kills}`);
+assert(combat.kills > 0, `cannon/mortar/cryo sink hulls, kills=${combat.kills}`);
 assert(combat.state === 'build' || combat.state === 'won' || combat.lives < combat.maxLives || combat.kills > 0, 'wave resolved without crash');
 
 const zap = new Defense(0, { money: 500 });
@@ -140,15 +157,15 @@ zap.fire(zap.towers[0], 1);
 assert(zap.events.filter(e => e.type === 'beam').length >= 2, 'tesla chain arc');
 assert(aShip.hp < aShip.maxHp && bShip.hp < bShip.maxHp, 'tesla hits chained hulls');
 
-const frost = new Defense(0, { money: 400 });
-frost.build(0, 'frost');
-frost.startWave();
-frost.spawnEnemy('scout1');
-const runner = frost.enemies[0];
-runner.x = frost.towers[0].x + 18;
-runner.y = frost.towers[0].y;
+const cryo = new Defense(0, { money: 400 });
+cryo.build(0, 'cryo');
+cryo.startWave();
+cryo.spawnEnemy('scout1');
+const runner = cryo.enemies[0];
+runner.x = cryo.towers[0].x + 18;
+runner.y = cryo.towers[0].y;
 runner.dist = 120;
-frost.fire(frost.towers[0], 1);
+cryo.fire(cryo.towers[0], 1);
 assert(runner.slow > 0, 'cryo applies slow');
 
 const blast = new Defense(0, { money: 400 });
@@ -176,8 +193,17 @@ boss.enemies[0].hp = 1;
 boss.hurt(boss.enemies[0], 50, 'tesla');
 assert(boss.bossDown, 'juggernaut counts as boss');
 
+const interest = new Defense(0, { money: 0, interest: 0.08 });
+interest.build(0, 'cannon');
+interest.money = 100;
+interest.startWave();
+interest.queue.length = 0;
+interest.enemies.length = 0;
+interest.step(0.016);
+assert(interest.money > 100, 'harbor interest pays after a wave');
+
 const run = new Defense(0, { qa: true, money: 300 });
-['cannon', 'cannon', 'frost', 'mortar'].forEach((type, i) => assert(run.build(i, type), `qa build ${type}`));
+['cannon', 'cannon', 'cryo', 'mortar'].forEach((type, i) => assert(run.build(i, type), `qa build ${type}`));
 let guard = 0;
 while (!['won', 'lost'].includes(run.state) && guard++ < 20000) {
   if (run.state === 'build') assert(run.startWave(), 'qa wave starts');
@@ -202,26 +228,29 @@ lose.step(0.016);
 assert(lose.state === 'lost', 'zero lives ends run');
 assert(lose.events.some(e => e.type === 'end' && e.won === false), 'loss event');
 
+const files = ['index.html', 'game.js', 'engine.mjs', 'content.mjs', 'combat.mjs', 'draw.mjs', 'style.css'];
+const uiSrc = (await Promise.all(files.map(f => readFile(new URL(`../${f}`, import.meta.url), 'utf8')))).join('\n');
+const saveSrc = await readFile(new URL('../save.mjs', import.meta.url), 'utf8');
 const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
-const js = await readFile(new URL('../game.js', import.meta.url), 'utf8');
-const engine = await readFile(new URL('../engine.mjs', import.meta.url), 'utf8');
 const css = await readFile(new URL('../style.css', import.meta.url), 'utf8');
-const src = html + js + engine + css;
 const battle = html.split('id="battle"')[1].split('id="result"')[0];
-assert(!/stripe|paypal|checkout|payment|buy now|koupit hru/i.test(src), 'no payment gateway');
-assert(!/id="campaign"|Klasické sektory|Mapa sektorů/i.test(src), 'campaign is not the main path');
+assert(!/stripe|paypal|checkout|payment|buy now|koupit hru/i.test(uiSrc + saveSrc), 'no payment gateway');
+assert(!/id="campaign"|Klasické sektory|Mapa sektorů/i.test(uiSrc), 'campaign is not the main path');
 assert(!/REPLACE/i.test(battle), 'replace out of scope');
-assert(!/ANCHORS|Anchors|remnant/i.test(battle), 'no anchors on battle HUD');
+assert(!/ANCHORS|Anchors|remnant|zbytek/i.test(battle), 'no anchors on battle HUD');
+assert(!/remnant|zbytek|zbytky|chest|yard|lights/i.test(uiSrc), 'no leftover remnants/campaign keys in live UI');
+assert(!/\bfrost\b/.test(uiSrc), 'no leftover frost type in live modules');
+assert(/src\.remnants/.test(saveSrc), 'save keeps one-shot remnants import only');
 assert(/id="hq-anchors"/.test(html) && /ANCHORS/.test(html), 'anchors on HQ');
 assert(/id="result-anchors"/.test(html), 'anchors on end-of-run');
 assert(/id="mode-build"/.test(html) && />BUILD</.test(html) && />UPGRADE</.test(html) && />SELL</.test(html), 'dock modes');
 assert(/START WAVE/.test(html) && /start-wave/.test(css), 'start wave amber dock button');
 assert(/mode-chip/.test(html) && /BUILDING/.test(html), 'mode chip BUILDING');
-assert(/hud-top/.test(html) && /id="money"/.test(html) && /id="lives"/.test(html) && /wave-bar/.test(html), 'top strip credits lives wave');
-assert(!/mission-name|sector-label/.test(html), 'no battle title');
+assert(/hud-top/.test(html) && /id="credits"/.test(html) && /id="lives"/.test(html) && /wave-bar/.test(html), 'top strip credits lives wave');
+assert(!/mission-name|sector-label|id="money"|gold-mark/.test(html), 'no battle title or gold leftover ids');
 assert(/assets\/credits\.svg/.test(html) && /assets\/anchors\.svg/.test(html) && /assets\/lives\.svg/.test(html), 'hud icons');
-assert(/drawFog|lighthouse|fog/.test(js), 'flat overlay fog + lighthouse');
-assert(/level >= 2/.test(js) && /level >= 3/.test(js), 'tower L2/L3 extra detail');
+assert(/drawFog|lighthouse/.test(await readFile(new URL('../draw.mjs', import.meta.url), 'utf8')), 'flat overlay fog + lighthouse');
+assert(/level >= 2/.test(await readFile(new URL('../draw.mjs', import.meta.url), 'utf8')), 'tower L2/L3 extra detail');
 
 const anchorsSvg = await readFile(new URL('../assets/anchors.svg', import.meta.url), 'utf8');
 const creditsSvg = await readFile(new URL('../assets/credits.svg', import.meta.url), 'utf8');

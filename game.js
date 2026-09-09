@@ -4,6 +4,7 @@ import {
   loadSave, persistSave, modsFromSave, buyMeta, buyMap, applyRunPayout,
   demoRankLocked, demoCta, mapUnlocked, metaCost,
 } from './engine.mjs';
+import { turret, renderBoard } from './draw.mjs';
 
 const $ = id => document.getElementById(id);
 const canvas = $('board');
@@ -18,14 +19,13 @@ const memoryStore = () => {
   return {
     getItem: k => (map.has(k) ? map.get(k) : null),
     setItem: (k, v) => { map.set(k, String(v)); },
+    removeItem: k => { map.delete(k); },
   };
 };
 
 let save;
-try { save = loadSave(storage); persistSave(storage, save); }
-catch {
-  save = loadSave(memoryStore());
-}
+try { save = loadSave(storage); }
+catch { save = loadSave(memoryStore()); }
 
 let game = new Defense(0, { ...modsFromSave(save), qa });
 let screen = 'hq';
@@ -98,123 +98,27 @@ $('sound').onclick = () => {
 };
 syncSound();
 
-function circle(c, x, y, r, fill, stroke, width = 1) {
-  c.beginPath();
-  c.arc(x, y, r, 0, Math.PI * 2);
-  if (fill) { c.fillStyle = fill; c.fill(); }
-  if (stroke) { c.strokeStyle = stroke; c.lineWidth = width; c.stroke(); }
-}
-
-function turret(c, x, y, type, angle = -Math.PI / 2, level = 1, scale = 1) {
-  const color = TYPES[type].color;
-  const grow = 1 + (level - 1) * 0.16;
-  c.save();
-  c.translate(x, y);
-  c.scale(scale * grow, scale * grow);
-  circle(c, 0, 0, 15, '#071e27', '#b8ffd9', 1.4);
-  c.strokeStyle = '#e2eee822';
-  c.lineWidth = 1;
-  c.beginPath();
-  c.arc(0, 0, 15, -1.1, 0.4);
-  c.stroke();
-  if (type === 'cannon') {
-    c.fillStyle = '#1c2c30';
-    c.fillRect(-7, -12 - (level > 1 ? 4 : 0), 14, 24 + (level > 1 ? 4 : 0));
-    c.save();
-    c.rotate(angle);
-    c.fillStyle = color;
-    c.fillRect(4, -3.5, 16 + (level > 2 ? 4 : 0), 7);
-    c.restore();
-    if (level >= 2) {
-      c.fillStyle = color;
-      c.fillRect(-10, -3, 5, 6);
-    }
-    if (level >= 3) circle(c, 0, -16, 3.2, color);
-  } else if (type === 'tesla') {
-    c.strokeStyle = color;
-    c.lineWidth = 3;
-    c.lineCap = 'round';
-    c.beginPath();
-    c.moveTo(0, 7);
-    c.lineTo(0, -13);
-    c.stroke();
-    c.beginPath();
-    c.arc(0, -13, 8, Math.PI * 0.18, Math.PI * 0.82);
-    c.stroke();
-    if (level >= 2) {
-      c.beginPath();
-      c.moveTo(-6, 4);
-      c.lineTo(-6, -8);
-      c.moveTo(6, 4);
-      c.lineTo(6, -8);
-      c.stroke();
-    }
-    if (level >= 3) circle(c, 0, -13, 4, null, color, 1.5);
-  } else if (type === 'frost') {
-    c.beginPath();
-    c.moveTo(0, -14);
-    c.lineTo(10, 0);
-    c.lineTo(0, 14);
-    c.lineTo(-10, 0);
-    c.closePath();
-    c.fillStyle = color;
-    c.fill();
-    if (level >= 2) {
-      c.beginPath();
-      c.moveTo(0, -7);
-      c.lineTo(5, 0);
-      c.lineTo(0, 7);
-      c.lineTo(-5, 0);
-      c.closePath();
-      c.fillStyle = '#071e27';
-      c.fill();
-    }
-    if (level >= 3) {
-      c.strokeStyle = color;
-      c.lineWidth = 1.5;
-      c.beginPath();
-      c.moveTo(-12, -8);
-      c.lineTo(-16, -14);
-      c.moveTo(12, -8);
-      c.lineTo(16, -14);
-      c.stroke();
-    }
-  } else if (type === 'mortar') {
-    c.fillStyle = '#1c2c30';
-    c.fillRect(-9, -8, 18, 18);
-    c.save();
-    c.rotate(angle - 0.5);
-    c.fillStyle = color;
-    c.fillRect(2, -4.5, 14, 9);
-    c.restore();
-    if (level >= 2) {
-      c.strokeStyle = color;
-      c.lineWidth = 2;
-      c.beginPath();
-      c.moveTo(-11, 10);
-      c.lineTo(-16, 16);
-      c.moveTo(11, 10);
-      c.lineTo(16, 16);
-      c.stroke();
-    }
-    if (level >= 3) circle(c, 0, -12, 5, null, color, 2);
-  }
-  c.restore();
-}
-
 function hideScreens() {
   $('hq').classList.add('hidden');
   $('battle').classList.add('hidden');
   $('result').classList.add('hidden');
 }
 
+function setNote(id, text) {
+  if (!text) {
+    $(id).classList.add('hidden');
+    $(id).textContent = '';
+    return;
+  }
+  $(id).classList.remove('hidden');
+  $(id).textContent = text;
+}
+
 function drawHq() {
   $('hq-anchors').textContent = fmt(save.anchors);
   $('demo-cta').classList.toggle('hidden', !demoCta(save.runs));
-  if (save.last) {
-    $('last-run').classList.remove('hidden');
-    $('last-run').textContent = `${save.last.won ? 'Held' : 'Broken'} · +${save.last.gain} anchors`;
-  } else $('last-run').classList.add('hidden');
+  setNote('last-run', save.last ? `${save.last.won ? 'Held' : 'Broken'} · +${save.last.gain} anchors` : '');
+  setNote('hq-note', '');
 
   $('upgrades').innerHTML = META_UPGRADES.map(u => {
     const rank = save.upgrades[u.id];
@@ -245,9 +149,7 @@ function drawHq() {
     const open = mapUnlocked(save, level.id);
     const selectedMap = i === mapIndex && open;
     const waves = qa ? 2 : level.waves;
-    const lockNote = open
-      ? `${waves} waves`
-      : `Locked · ${MAP_UNLOCK_COST} anchors or clear`;
+    const lockNote = open ? `${waves} waves · ${level.tip}` : `Locked · ${MAP_UNLOCK_COST} anchors or clear`;
     return `<button class="map-pick ${selectedMap ? 'selected' : ''} ${open ? '' : 'locked'}" data-map="${i}">
       <span class="eyebrow">${level.area}</span>
       <strong>${level.name}</strong>
@@ -268,7 +170,7 @@ function drawHq() {
     b.onclick = e => {
       e.stopPropagation();
       if (!buyMap(save, b.dataset.unlock)) {
-        noticeHq();
+        setNote('hq-note', `Need ${MAP_UNLOCK_COST} anchors, or clear the previous map.`);
         return;
       }
       persist();
@@ -277,14 +179,8 @@ function drawHq() {
       tone(520, .12, .035);
     };
   });
-  const currentOpen = mapUnlocked(save, LEVELS[mapIndex]?.id);
-  if (!currentOpen) mapIndex = 0;
+  if (!mapUnlocked(save, LEVELS[mapIndex]?.id)) mapIndex = 0;
   $('start-run').disabled = !mapUnlocked(save, LEVELS[mapIndex].id);
-}
-
-function noticeHq() {
-  $('last-run').classList.remove('hidden');
-  $('last-run').textContent = `Need ${MAP_UNLOCK_COST} anchors, or clear the previous map.`;
 }
 
 function showHq() {
@@ -416,8 +312,6 @@ function endRun(won) {
   const gain = applyRunPayout(save, {
     won,
     wave: game.wave,
-    kills: game.kills,
-    lives: game.lives,
     boss: game.bossDown,
     mapId: game.level.id,
   });
@@ -541,7 +435,7 @@ function waveText(plan) {
 
 function syncUI() {
   if (screen !== 'battle') return;
-  $('money').textContent = fmt(game.money);
+  $('credits').textContent = fmt(game.money);
   $('lives').textContent = game.lives;
   $('lives-wrap').classList.toggle('low-health', game.lives < Math.ceil(game.maxLives * .4));
   $('wave').textContent = `${game.wave}/${game.level.waves}`;
@@ -551,7 +445,7 @@ function syncUI() {
   $('send-wave').disabled = game.state !== 'build' || paused;
   $('send-wave').textContent = game.state === 'wave' ? 'WAVE LIVE' : game.state === 'won' ? 'HELD' : 'START WAVE';
   if (game.state === 'wave') $('next-enemies').textContent = `${game.enemies.length + game.queue.length} hulls`;
-  else if (game.state === 'build') $('next-enemies').textContent = waveText(wavePlan(game.index, game.wave + 1, qa));
+  else if (game.state === 'build') $('next-enemies').textContent = waveText(wavePlan(game.wave + 1, qa));
   else $('next-enemies').textContent = '—';
 
   document.querySelectorAll('[data-tower]').forEach(b => {
@@ -572,7 +466,7 @@ function events() {
     if (e.type === 'build') { effects.push({ ...e, age: 0, life: .55 }); tone(430, .1, .035); }
     if (e.type === 'kill') { effects.push({ ...e, age: 0, life: .55 }); if (game.kills % 3 === 0) tone(75, .12, .025, 'triangle', 35); }
     if (e.type === 'blast') { effects.push({ ...e, age: 0, life: .4 }); tone(58, .18, .04, 'triangle', 30); }
-    if (e.type === 'beam' || e.type === 'aura') effects.push({ ...e, age: 0, life: e.frost ? .2 : .18 });
+    if (e.type === 'beam') effects.push({ ...e, age: 0, life: e.slow ? .2 : .18 });
     if (e.type === 'leak') { effects.push({ ...e, age: 0, life: .65 }); notice(`Leak −${e.harm}`, 1.5, true); tone(140, .3, .05, 'sawtooth', 75); }
     if (e.type === 'wave') { notice(`Wave ${e.wave} / ${game.level.waves}`, 2); tone(330, .2, .04); }
     if (e.type === 'clear') {
@@ -673,279 +567,6 @@ window.addEventListener('blur', () => {
   if (screen === 'battle' && game.state === 'wave' && !paused) pause();
 });
 
-function offsetPoly(points, amount) {
-  const out = [];
-  for (let i = 0; i < points.length; i++) {
-    const prev = points[Math.max(0, i - 1)];
-    const next = points[Math.min(points.length - 1, i + 1)];
-    const dx = next[0] - prev[0];
-    const dy = next[1] - prev[1];
-    const len = Math.hypot(dx, dy) || 1;
-    out.push([points[i][0] + (-dy / len) * amount, points[i][1] + (dx / len) * amount]);
-  }
-  return out;
-}
-
-function drawPath(points, foamSide) {
-  ctx.beginPath();
-  points.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y));
-  ctx.lineJoin = 'round';
-  ctx.lineCap = 'round';
-  ctx.strokeStyle = '#041318';
-  ctx.lineWidth = 42;
-  ctx.stroke();
-  ctx.strokeStyle = '#0a2a32';
-  ctx.lineWidth = 34;
-  ctx.stroke();
-  const foam = offsetPoly(points, 20 * foamSide);
-  ctx.beginPath();
-  foam.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y));
-  ctx.strokeStyle = '#b8ffd955';
-  ctx.lineWidth = 3;
-  ctx.setLineDash([5, 9]);
-  ctx.lineDashOffset = reduced ? 0 : -clock * 10;
-  ctx.stroke();
-  ctx.setLineDash([]);
-}
-
-function drawLighthouse(x, y) {
-  const low = game.lives < Math.ceil(game.maxLives * .4);
-  ctx.save();
-  const sweep = reduced ? -2.35 : -2.35 + Math.sin(clock * 0.22) * 0.18;
-  ctx.translate(x, y - 28);
-  const cone = ctx.createLinearGradient(0, 0, 260, 40);
-  cone.addColorStop(0, 'rgba(255,209,146,0.32)');
-  cone.addColorStop(1, 'rgba(255,209,146,0)');
-  ctx.fillStyle = cone;
-  ctx.beginPath();
-  ctx.moveTo(0, 0);
-  ctx.lineTo(Math.cos(sweep - 0.32) * 280, Math.sin(sweep - 0.32) * 280);
-  ctx.lineTo(Math.cos(sweep + 0.32) * 280, Math.sin(sweep + 0.32) * 280);
-  ctx.closePath();
-  ctx.fill();
-  ctx.restore();
-
-  ctx.beginPath();
-  ctx.moveTo(x - 10, y + 18);
-  ctx.lineTo(x - 6, y - 16);
-  ctx.lineTo(x + 6, y - 16);
-  ctx.lineTo(x + 10, y + 18);
-  ctx.closePath();
-  ctx.fillStyle = '#c5d6ce';
-  ctx.fill();
-  ctx.strokeStyle = '#e2eee855';
-  ctx.lineWidth = 1.2;
-  ctx.stroke();
-  ctx.fillStyle = '#9bb0a8';
-  ctx.fillRect(x - 8, y - 20, 16, 6);
-  circle(ctx, x, y - 26, 5, low ? '#ff8094' : '#ffd192');
-  ctx.fillStyle = 'rgba(255,209,146,0.35)';
-  ctx.beginPath();
-  ctx.arc(x, y - 26, 11, 0, Math.PI * 2);
-  ctx.fill();
-}
-
-function drawFog() {
-  if (reduced) {
-    const g = ctx.createLinearGradient(0, 0, 0, H);
-    g.addColorStop(0, 'rgba(8, 28, 34, 0.28)');
-    g.addColorStop(1, 'rgba(8, 28, 34, 0.08)');
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, W, H);
-    return;
-  }
-  ctx.save();
-  ctx.globalAlpha = 0.12;
-  for (let i = 0; i < 6; i++) {
-    const x = ((clock * 12 + i * 190) % (W + 280)) - 140;
-    const y = 40 + i * 88;
-    ctx.fillStyle = i % 2 ? '#9bb8b8' : '#6f8c8c';
-    ctx.beginPath();
-    ctx.ellipse(x, y, 210, 46, -0.18, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.restore();
-  const vig = ctx.createRadialGradient(W / 2, H / 2, 180, W / 2, H / 2, 560);
-  vig.addColorStop(0, 'rgba(7,30,39,0)');
-  vig.addColorStop(1, 'rgba(7,30,39,0.45)');
-  ctx.fillStyle = vig;
-  ctx.fillRect(0, 0, W, H);
-}
-
-function drawLand() {
-  game.level.pads.forEach(([x, y]) => {
-    ctx.beginPath();
-    ctx.ellipse(x, y + 6, 34, 22, 0, 0, Math.PI * 2);
-    ctx.fillStyle = '#0a2229';
-    ctx.fill();
-    ctx.strokeStyle = '#e2eee812';
-    ctx.lineWidth = 1;
-    ctx.stroke();
-  });
-}
-
-function drawShip(e) {
-  ctx.save();
-  ctx.translate(e.x, e.y);
-  circle(ctx, 0, 8, e.size * 1.15, e.ring + '55', e.ring, 1.4);
-  ctx.rotate(e.angle);
-  const s = e.size;
-  const t = e.tier || 1;
-  ctx.beginPath();
-  if (e.family === 'ironclad' || e.family === 'juggernaut') {
-    ctx.moveTo(s * 1.35, 0);
-    ctx.lineTo(s * .35, -s * 0.95);
-    ctx.lineTo(-s * 1.05, -s * .75);
-    ctx.lineTo(-s * 1.05, s * .75);
-    ctx.lineTo(s * .35, s * 0.95);
-  } else if (e.family === 'swarm') {
-    const boats = t >= 3 ? 2 : 3;
-    for (let i = 0; i < boats; i++) {
-      const ox = (i - (boats - 1) / 2) * s * 0.85;
-      const oy = boats === 2 ? 0 : (i === 1 ? 0 : i === 0 ? -s * 0.42 : s * 0.42);
-      ctx.beginPath();
-      ctx.moveTo(s * 0.85 + ox, oy);
-      ctx.lineTo(-s * 0.5 + ox, -s * 0.32 + oy);
-      ctx.lineTo(-s * 0.3 + ox, oy);
-      ctx.lineTo(-s * 0.5 + ox, s * 0.32 + oy);
-      ctx.closePath();
-      ctx.fillStyle = e.flash > 0 ? '#fff0df' : e.color;
-      ctx.fill();
-      ctx.strokeStyle = '#e2eee855';
-      ctx.lineWidth = 1.1;
-      ctx.stroke();
-    }
-    ctx.restore();
-    return;
-  } else {
-    ctx.moveTo(s * (1.5 + t * 0.12), 0);
-    ctx.lineTo(-s, -s * .5);
-    ctx.lineTo(-s * .55, 0);
-    ctx.lineTo(-s, s * .5);
-  }
-  ctx.closePath();
-  ctx.fillStyle = e.flash > 0 ? '#fff0df' : e.color;
-  ctx.fill();
-  ctx.strokeStyle = '#e2eee855';
-  ctx.lineWidth = 1.2;
-  ctx.stroke();
-  ctx.fillStyle = e.family === 'juggernaut' ? '#ff8094' : '#ffd192';
-  const windows = 1 + t;
-  for (let i = 0; i < windows; i++) {
-    ctx.fillRect(-s * 0.35 + i * (s * 0.35), -s * 0.18, s * 0.22, s * 0.16);
-  }
-  if (e.family === 'juggernaut') {
-    ctx.fillStyle = '#ff8094';
-    ctx.fillRect(-s * 0.2, -s * 0.7, s * 0.18, s * 0.5);
-    ctx.fillRect(s * 0.15, -s * 0.55, s * 0.16, s * 0.4);
-  }
-  ctx.restore();
-}
-
-function draw() {
-  ctx.clearRect(0, 0, viewW, viewH);
-  ctx.save();
-  ctx.translate(mapX, mapY);
-  ctx.scale(mapScale, mapScale);
-
-  ctx.fillStyle = '#071e27';
-  ctx.fillRect(-40, -40, W + 80, H + 80);
-
-  drawLand();
-  const foam = game.level.foam || 1;
-  for (const points of game.level.paths) drawPath(points, foam);
-
-  const [lx, ly] = game.level.lighthouse;
-  drawLighthouse(lx, ly);
-
-  const active = selected >= 0 ? selected : hover;
-  const t = game.towerAt(active);
-  const type = t?.type || (dockMode === 'build' ? blueprint : null);
-  if (active >= 0 && type) {
-    const [x, y] = game.level.pads[active];
-    const s = game.towerStats(t || { type, level: 1 });
-    circle(ctx, x, y, s.range, s.color + '10', s.color + '55', 1);
-  }
-
-  game.level.pads.forEach(([x, y], i) => {
-    const tower = game.towerAt(i);
-    const isSelected = i === selected || i === hover;
-    circle(ctx, x, y, 24, '#071e27cc', isSelected ? '#b8ffd9' : tower ? '#7eab9266' : '#b8ffd970', isSelected ? 2 : 1.4);
-    if (!tower) {
-      ctx.strokeStyle = isSelected ? '#b8ffd9' : '#99ccb966';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(x - 6, y);
-      ctx.lineTo(x + 6, y);
-      ctx.moveTo(x, y - 6);
-      ctx.lineTo(x, y + 6);
-      ctx.stroke();
-    }
-  });
-
-  for (const tw of game.towers) {
-    turret(ctx, tw.x, tw.y, tw.type, tw.angle, tw.level);
-    if (tw.cool > game.towerStats(tw).rate - .07) {
-      circle(ctx, tw.x + Math.cos(tw.angle) * 22, tw.y + Math.sin(tw.angle) * 22, 4, TYPES[tw.type].color);
-    }
-  }
-
-  for (const e of game.enemies) {
-    drawShip(e);
-    if (e.slow > 0) circle(ctx, e.x, e.y, e.size + 7, null, '#e2eee888', 2);
-    if (e.hp < e.maxHp || e.family === 'ironclad' || e.family === 'juggernaut') {
-      const w = e.family === 'juggernaut' ? 44 : e.family === 'ironclad' ? 36 : 26;
-      ctx.fillStyle = '#071e27';
-      ctx.fillRect(e.x - w / 2, e.y - e.size - 12, w, 3);
-      ctx.fillStyle = e.slow > 0 ? '#e2eee8' : e.family === 'juggernaut' ? '#ff8094' : e.family === 'ironclad' ? '#ffd192' : '#b8ffd9';
-      ctx.fillRect(e.x - w / 2, e.y - e.size - 12, w * Math.max(0, e.hp / e.maxHp), 3);
-    }
-  }
-
-  for (const p of game.projectiles) {
-    const q = Math.min(1, p.age / p.duration);
-    const x = p.ox + (p.tx - p.ox) * q;
-    const y = p.oy + (p.ty - p.oy) * q - (p.type === 'mortar' ? Math.sin(q * Math.PI) * 60 : 0);
-    ctx.beginPath();
-    ctx.moveTo(x - (p.tx - p.ox) * .03, y - (p.ty - p.oy) * .03);
-    ctx.lineTo(x, y);
-    ctx.strokeStyle = p.color;
-    ctx.lineWidth = p.type === 'mortar' ? 4 : 2;
-    ctx.stroke();
-    circle(ctx, x, y, p.type === 'mortar' ? 4 : 2.4, '#fff0d2');
-  }
-
-  for (const e of effects) {
-    const q = e.age / e.life;
-    ctx.globalAlpha = 1 - q;
-    if (e.type === 'beam') {
-      ctx.beginPath();
-      ctx.moveTo(e.x, e.y);
-      ctx.lineTo(e.tx, e.ty);
-      ctx.strokeStyle = e.color;
-      ctx.lineWidth = 2;
-      ctx.stroke();
-    } else if (e.type === 'aura') {
-      circle(ctx, e.x, e.y, e.range * (0.2 + q * 0.15), null, e.color, 1.5);
-    } else if (e.type === 'blast') {
-      circle(ctx, e.x, e.y, 65 * q, null, e.color, 2);
-    } else if (e.type === 'build') {
-      circle(ctx, e.x, e.y, 22 + q * 22, null, e.color, 2);
-    } else if (e.type === 'leak') {
-      circle(ctx, e.x, e.y, 14 + q * 50, null, '#ff8094', 3);
-    } else if (e.type === 'kill') {
-      ctx.fillStyle = '#ffd192';
-      ctx.font = 'bold 12px "DM Sans",sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('+' + e.bounty, e.x, e.y - 12 - q * 20);
-    }
-    ctx.globalAlpha = 1;
-  }
-
-  drawFog();
-  ctx.restore();
-}
-
 function frame(ms) {
   const dt = Math.min((ms - last) / 1000 || 0, .05);
   last = ms;
@@ -964,7 +585,9 @@ function frame(ms) {
     }
     uiClock += dt;
     if (uiClock > .15) { syncUI(); uiClock = 0; }
-    draw();
+    renderBoard(ctx, game, { viewW, viewH, mapX, mapY, mapScale, clock, reduced }, {
+      selected, hover, blueprint, dockMode, effects,
+    });
   }
   requestAnimationFrame(frame);
 }

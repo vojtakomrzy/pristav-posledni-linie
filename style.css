@@ -114,7 +114,7 @@ button:focus-visible, canvas:focus-visible {
 }
 .eyebrow > span { width: 24px; height: 1px; background: var(--mint); }
 
-.gold-mark, .anchor-mark, .life-mark {
+.credit-mark, .anchor-mark, .life-mark {
   display: block;
   width: 16px;
   height: 16px;
@@ -159,7 +159,8 @@ h1 em { color: var(--mint); font-style: normal; }
   letter-spacing: 1.7px;
   color: var(--muted);
 }
-.last-run { margin: 0 0 22px; color: #b0c3bf; font-size: 15px; }
+.last-run, .hq-note { margin: 0 0 22px; color: #b0c3bf; font-size: 15px; }
+.hq-note { color: var(--red); }
 .demo-cta {
   border: 1px solid #b8ffd94a;
   background: #0b2a32;
@@ -212,7 +213,7 @@ h1 em { color: var(--mint); font-style: normal; }
 }
 .upgrade-card .primary { width: 100%; margin-top: auto; min-height: 44px; }
 
-.patrol-row {
+.deploy-row {
   display: flex;
   gap: 14px;
   align-items: stretch;
@@ -235,7 +236,7 @@ h1 em { color: var(--mint); font-style: normal; }
   width: 100%;
   font-size: 13px;
 }
-.patrol-row .primary { min-width: 200px; align-self: stretch; }
+.deploy-row .primary { min-width: 200px; align-self: stretch; }
 .hq-foot {
   display: flex;
   justify-content: space-between;
@@ -291,13 +292,12 @@ h1 em { color: var(--mint); font-style: normal; }
   height: 44px;
   flex-shrink: 0;
 }
-.resources { display: flex; gap: 22px; align-items: center; }
 .res { display: flex; align-items: center; gap: 8px; }
 .hud-top b {
   font: 600 28px 'Barlow Condensed', sans-serif;
   font-variant-numeric: tabular-nums;
 }
-.res.gold b { color: var(--amber); }
+.res.credits b { color: var(--amber); }
 .wave-bar {
   width: 88px;
   height: 3px;
@@ -513,7 +513,7 @@ dialog::backdrop { background: #02121ac7; }
 @media (max-width: 1100px) {
   .app { padding: 0 22px; }
   .upgrade-grid { grid-template-columns: 1fr 1fr; }
-  .patrol-row { flex-direction: column; }
+  .deploy-row { flex-direction: column; }
   .map-picks { grid-template-columns: 1fr; }
 }
 @media (max-width: 800px) {
