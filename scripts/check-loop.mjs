@@ -294,7 +294,10 @@ assert(/FX_FOG/.test(drawSrc) && /lighter/.test(drawSrc), 'fog overlay + lightho
 assert(/blitFrame/.test(drawSrc) && /asset_manifest/.test(drawSrc), 'sheets via asset_manifest frames');
 assert(/7fd4ff/.test(drawSrc) && /drawPadGlow/.test(drawSrc), 'cyan pad glow');
 assert(!/pixi/i.test(uiSrc + drawSrc), 'vanilla canvas, not Pixi');
+assert(!/\bfort\b|vite|:5173|three\.js|webgl/i.test(uiSrc + drawSrc), 'Přístav only — no FORT/Vite/3D leftovers');
 const pkg = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
+assert(pkg.name === 'pristav-posledni-linie', 'repo is Přístav — Poslední linie');
+assert(pkg.scripts.web.includes('8765'), 'web server is 8765 not Vite 5173');
 assert(pkg.build.productName === 'Port — Last Line', 'store productName matches title');
 const electronSrc = await readFile(new URL('../electron/main.js', import.meta.url), 'utf8');
 assert(/Port — Last Line/.test(electronSrc), 'electron title matches store string');
